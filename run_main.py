@@ -15,44 +15,7 @@ from utils.utils import accuracy, MRR, to_cuda, exe_time
 from model.pref_austgn import Pref_Austgn
 
 
-@exe_time
-def Process_data(dir_data, batch_size):
-    def fun_pad_dit(xy_dit):
-        for key, value in xy_dit.items():
-            if isinstance(value[0], list):
-                if not isinstance(value[0][0],list):# 二维列表，比如y-->全部打平成一维
-                    flat_list = [item for sublist in value for item in sublist]
-                    xy_dit[key] = torch.tensor(flat_list, dtype=torch.long)
-                else:#三维，四维列表，将第一第二维打平,并和所有用户中最长的时间步对齐
-                    flat_list = [torch.tensor(item) for sublist in value for item in sublist]
-                    xy_dit[key] = pad_sequence(flat_list, batch_first=True, padding_value=0)
-            else:
-                xy_dit[key] = torch.tensor(value, dtype=torch.int)
-        return xy_dit
-    
-    with open(dir_data, 'rb') as f:
-        data = pickle.load(f)
-        '''
-        [tra_x_feas_us, tra_y_feas_us, tra_neg_feas_us]
-        '''
-    x_keys = ['x_unit', 'x_poi', 'x_cat', 'x_day', 'x_hour', 'x_geo',\
-              'x_sub_day', 'x_sub_hour', 'x_sub_geo',\
-              'x_poi_rec', 'x_cat_rec', 'x_day_rec', 'x_hour_rec', 'x_geo_rec',\
-              'x_delta_t_rec', 'x_delta_d_rec',\
-              'x_poi_rec_q', 'x_cat_rec_q', 'x_day_rec_q', 'x_hour_rec_q', 'x_geo_rec_q', \
-              'x_length_rec'] #(1078,时间步，每个包含之前的时间步,sub_num)
-    
-    y_keys = ['y_poi', 'y_cat', 'y_day', 'y_hour', 'y_geo'] #(1078,57)
-    neg_keys = ['neg_poi', 'neg_cat'] #(1078,57)
-    x_feas_us, y_feas_us, neg_feas_us = data #[num_feas, len_user, len_ts]
-    
-    xy_dit ={k:v for k, v in zip(x_keys, x_feas_us)}
-    xy_dit.update({k:v for k, v in zip(y_keys, y_feas_us)})
-    xy_dit.update({k:v for k,v in zip(neg_keys, neg_feas_us)})
-    
-    tra_tes_xy = fun_pad_dit(xy_dit)
-
-    class pref_austgn_Dataset(Dataset):
+class pref_austgn_Dataset(Dataset):
         def __init__(self, xy):
             # austgn
             self.user = xy['x_unit']
@@ -134,22 +97,74 @@ def Process_data(dir_data, batch_size):
             y_poi, y_cat, y_day, y_hour, y_geo, \
             neg_poi, neg_cat
     
+
+@exe_time
+def Process_data(dir_data, batch_size):
+    def fun_pad_dit(xy_dit):
+        for key, value in xy_dit.items():
+            if isinstance(value[0], list):
+                if not isinstance(value[0][0],list):# 二维列表，比如y-->全部打平成一维
+                    flat_list = [item for sublist in value for item in sublist]
+                    xy_dit[key] = torch.tensor(flat_list, dtype=torch.long)
+                else:#三维，四维列表，将第一第二维打平,并和所有用户中最长的时间步对齐
+                    flat_list = [torch.tensor(item) for sublist in value for item in sublist]
+                    xy_dit[key] = pad_sequence(flat_list, batch_first=True, padding_value=0)
+            else:
+                xy_dit[key] = torch.tensor(value, dtype=torch.int)
+        return xy_dit
+    
+    with open(dir_data, 'rb') as f:
+        data = pickle.load(f)
+        '''
+        [tra_x_feas_us, tra_y_feas_us, tra_neg_feas_us]
+        '''
+    x_keys = ['x_unit', 'x_poi', 'x_cat', 'x_day', 'x_hour', 'x_geo',\
+              'x_sub_day', 'x_sub_hour', 'x_sub_geo',\
+              'x_poi_rec', 'x_cat_rec', 'x_day_rec', 'x_hour_rec', 'x_geo_rec',\
+              'x_delta_t_rec', 'x_delta_d_rec',\
+              'x_poi_rec_q', 'x_cat_rec_q', 'x_day_rec_q', 'x_hour_rec_q', 'x_geo_rec_q', \
+              'x_length_rec'] #(1078,时间步，每个包含之前的时间步,sub_num)
+    
+    y_keys = ['y_poi', 'y_cat', 'y_day', 'y_hour', 'y_geo'] #(1078,57)
+    neg_keys = ['neg_poi', 'neg_cat'] #(1078,57)
+    x_feas_us, y_feas_us, neg_feas_us = data #[num_feas, len_user, len_ts]
+    
+    xy_dit ={k:v for k, v in zip(x_keys, x_feas_us)}
+    xy_dit.update({k:v for k, v in zip(y_keys, y_feas_us)})
+    xy_dit.update({k:v for k,v in zip(neg_keys, neg_feas_us)})
+    
+    tra_tes_xy = fun_pad_dit(xy_dit)
+
+    
     pref_austgn_dataset = pref_austgn_Dataset(tra_tes_xy)
     pref_austgn_dataloader = DataLoader(pref_austgn_dataset, batch_size, shuffle=True)
     return pref_austgn_dataloader
 
 
-
-
+def fun_save_data(dir_data, batch_size, outputfile):
+    if os.path.exists(outputfile[-1]):
+        return
+    else:
+        processed_data = []
+        for dir_data, dir_output in zip(dir_data, outputfile):
+            tra_inputs = Process_data(dir_data, batch_size)
+            with open(dir_output, 'wb') as f:
+                pickle.dump(tra_inputs, f)
+    return 
 
 @exe_time
 def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
-                    pref_embs, stgn_embs, mlp_units, dir_inputs_lists, len_tra, len_tes, num_neg, num_head, num_rec):
+                    pref_embs, stgn_embs, mlp_units, dir_inputs_lists, dir_output_lists, len_tra, len_tes, num_neg, num_head, num_rec):
     
     model = Pref_Austgn(num_x, pref_embs, stgn_embs, mlp_units, num_layers, num_head, num_rec)
     model = model.cuda()
     loss_function = nn.BCELoss(reduce = 'mean')
     optimizer = torch.optim.Adam(model.parameters(), lr, weight_decay=weight_decay)
+    
+    # 在训练之前加载数据，避免每个epoch都花费2min生成数据,只执行一次
+    # 调用封装的prepare_data函数
+    fun_save_data(dir_inputs_lists, batch_size, dir_output_lists) # 不需要返回，保存到文件
+    
     for epoch in range(num_epoch):
         train_start = datetime.now()
 
@@ -157,8 +172,10 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         train_epoch_loss = 0.0
         tra_acc_1, tra_acc_5 = 0, 0
         mrr = 0
-        for dir_data in dir_inputs_lists:
-            tra_inputs = Process_data(dir_data, batch_size)
+        for dir_data in dir_output_lists:
+            # tra_inputs = Process_data(dir_data, batch_size)
+            # 加载已保存的数据
+            tra_inputs = pickle.load(open(dir_data, 'rb'))
             for batch, batch_inputs in enumerate(tra_inputs):
                 batch_inputs = to_cuda(batch_inputs)
                 model.zero_grad()
@@ -215,6 +232,8 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
 def main_nyc():
     dir_input_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
                         '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
+    dir_output_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_prepared.pkl',\
+                        '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_prepared.pkl']
     num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
     batch_size, num_epoch = 10, 100
@@ -231,6 +250,6 @@ def main_nyc():
     num_x = [1078, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
 
     run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
-                    pref_embs, stgn_embs, mlp_units, dir_input_lists, len_tra, len_tes, num_negs, num_head, num_rec)
+                    pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_output_lists, len_tra, len_tes, num_negs, num_head, num_rec)
 if __name__ =='__main__':
      main_nyc()

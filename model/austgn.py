@@ -90,8 +90,8 @@ class AUSTGN(nn.Module):
         hidden_seq_attn = [] # 暂存一个batch所有时间步的ht，避免转化形状
         if init_state is None: # 初始化最初状态
             h_t, c_t= (
-                torch.zeros(batch_size, self.hidden_sz), # h_t只包含当前时间步的
-                torch.zeros(batch_size, self.hidden_sz)
+                torch.zeros(batch_size, self.hidden_sz).cuda(), # h_t只包含当前时间步的
+                torch.zeros(batch_size, self.hidden_sz).cuda()
             )
         else:
             h_t, c_t = init_state

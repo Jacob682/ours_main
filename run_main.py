@@ -140,7 +140,6 @@ def Process_data(dir_data, batch_size):
     pref_austgn_dataloader = DataLoader(pref_austgn_dataset, batch_size, shuffle=True)
     return pref_austgn_dataloader
 
-
 def fun_save_data(dir_data, batch_size, outputfile):
     if os.path.exists(outputfile[-1]):
         return
@@ -151,6 +150,7 @@ def fun_save_data(dir_data, batch_size, outputfile):
             with open(dir_output, 'wb') as f:
                 pickle.dump(tra_inputs, f)
     return 
+
 
 @exe_time
 def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
@@ -178,7 +178,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             tra_inputs = pickle.load(open(dir_data, 'rb'))
             for batch, batch_inputs in enumerate(tra_inputs):
                 batch_inputs = to_cuda(batch_inputs)
-                model.zero_grad()
+                optimizer.zero_grad()
                 austgn_inputs = batch_inputs[:14]
                 pref_inputs = batch_inputs[14:22]
                 y_inputs = batch_inputs[22:27]
@@ -202,10 +202,12 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 y_shuffle[pos_position] = 1 # 将正样本的位置设置为1
                 y_shuffle[~pos_position] = 0 # (batch_size, neg_num)
                 # 计算loss
-                b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)))
+                b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
                 # 反向传播
                 b_avg_loss.backward()
                 optimizer.step()
+                # b_avg_loss.detach()
+                # outputs.detach()
                 train_epoch_loss += b_avg_loss
                 
                 # 计算评价指标

@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+# os.environ['CUDA_VISIBLE_DEVICES']='0'
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -80,7 +80,7 @@ def accuracy(indices,batch_y,k,count=0,delta_dist=0):
     for i in range(indices.size(0)):#一个用户
         sort=indices[i]
         if batch_y[i].long() in sort[:k]:
-            hit+=1
+            hit = hit + 1
     return hit
 
 def MRR(indices,batch_y):
@@ -88,7 +88,7 @@ def MRR(indices,batch_y):
     for i in range(indices.size(0)):
         sort=indices[i]
         if batch_y[i].long() in sort:
-            m+=1/(torch.where(sort==batch_y[i])[0]+1)
+            m = m + 1/(torch.where(sort==batch_y[i])[0]+1)
     return m
 
 

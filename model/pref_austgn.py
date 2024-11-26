@@ -20,7 +20,7 @@ class BahdanauAttention_softmax(nn.Module):
         queries = queries.unsqueeze(-2) #(bs, num_neg+1, 1, embs)
         scores =self.wv(F.tanh(self.wq(queries) + self.wk(keys)))
         if cum_subs_masks is not None:
-            scores += (cum_subs_masks*-1e9)
+            scores = scores + (cum_subs_masks*-1e9)
         attn_weight = F.softmax(scores, dim=-2) #(bs, neg_num+1, key_num, 1)
         attn_out = attn_weight * keys # attn_out/keys:(bs, num_neg+1, key_num, key_size)
         attn_out = torch.sum(attn_out, dim=-2) #(bs, num_neg+1, key_size)

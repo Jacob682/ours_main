@@ -206,9 +206,8 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 # 反向传播
                 b_avg_loss.backward()
                 optimizer.step()
-                # b_avg_loss.detach()
-                # outputs.detach()
                 train_epoch_loss += b_avg_loss
+                
                 
                 # 计算评价指标
                 y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]

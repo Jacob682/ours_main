@@ -150,7 +150,6 @@ def Process_prefstgn_data(dir_inputs,batch_size):
             x_neg_poi=self.neg_pois[index]
             x_neg_cat=self.neg_cats[index]
 
-            print(x_poi.shape)
             #1     0       1           2               3              4          5           6        7
             #2          8    9     10     11     12     13        14          15        16        17
             #3        18     19      20      21
@@ -176,8 +175,6 @@ def Process_prefstgn_data(dir_inputs,batch_size):
     tes_prefstgn_dataset=pref_stgn_Dataset(tes_xy)
     tra_prefstgn_dataloader=DataLoader(tra_prefstgn_dataset,batch_size,shuffle=True)
     tes_prefstgn_dataloader=DataLoader(tes_prefstgn_dataset,batch_size,shuffle=True)
-    # for i,e in enumerate(tes_prefstgn_dataloader):
-    #     print(i)
     return tra_prefstgn_dataloader,tes_prefstgn_dataloader
 
 
@@ -198,7 +195,6 @@ def run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_de
     '''
     tra_inputs,tes_inputs=Process_prefstgn_data(dir_inputs,batch_size)
     model=Preference_Stgn(num_x,pref_embs,stgn_embs,mlp_units,dropout,num_layers,head_num)
-    # model=DataParallel(model)
     model=model.cuda()
     loss_function=nn.BCELoss(reduce='mean')
     optimizer=torch.optim.Adam(model.parameters(),lr,weight_decay=weight_decay)
@@ -303,126 +299,6 @@ def run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_de
             if early_stop.early_stop:
                     print('Early Stop.')
 
-def run_rnn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_decay,
-                 pref_embs,stgn_embs,mlp_units,dir_inputs,len_tra,len_tes,num_negs,head_num):
-    '''
-    dropout:无用
-    '''
-    '''tra_inputs=[pref_inputs,stgn_inputs,second_importance]
-        tra:
-        pref_inputs=[x_poi,x_cat,x_month,x_day,x_hour,x_hsh5,x_sub_month,x_sub_day,x_sub_hour,x_sub_hsh5,x_neg_poi,x_neg_cat,x_neg_second,\
-                    y_cat,y_second,y_month,y_day,y_hour,y_hsh5,\
-                    y_poi_int]
-        stgn_inputs=[u,x_rec_poi_int,x_rec_cat_int,x_rec_delta_t,x_rec_delta_d,x_rec_months/x_rec_hours,x_rec_hsh5,x_rec_len]
-        num_negs[tra_neg21,test_neg3906]
-    '''
-    tra_inputs,tes_inputs=Process_prefstgn_data(dir_inputs,batch_size)
-    model=torch.nn.RNN(num_x,pref_embs,stgn_embs,mlp_units,dropout,num_layers,head_num)
-    # model=DataParallel(model)
-    model=model.cuda()
-    loss_function=nn.BCELoss(reduce='mean')
-    optimizer=torch.optim.Adam(model.parameters(),lr,weight_decay=weight_decay)
-    early_stop=EarlyStop(patience,delta)
-    for epoch in range(patience):
-    # if not early_stop.early_stop:
-        torch.cuda.empty_cache()
-        model.train()
-        start=datetime.now()
-        train_epoch_loss=0.0
-        tra_acc_1,acc_5=0,0
-        mrr=0
-        for batch_step,inputs in enumerate(tra_inputs):
-            inputs=to_cuda(inputs)
-            model.zero_grad()
-            # second_importance=inputs[-1]
-            y=inputs[-1]
-            # pref_inputs=inputs[7:-1]
-            pref_inputs=inputs[8:]
-            stgn_inputs=inputs[:8]
-            model_inputs=[pref_inputs,stgn_inputs]#,second_importance]
-            
-            outputs =model(model_inputs,num_negs[0])#outputs(bs,neg_num+1）
-            outputs_1d=torch.softmax(outputs)
-            sorted_outputs,sorted_indice=torch.sort(outputs_1d,dim=-1,descending=True)
-            
-            zero_position=(shuffle_indices==0)
-            shuffle_indices_y=torch.zeros_like(shuffle_indices)#二元target
-            shuffle_indices_y[zero_position]=1
-            shuffle_indices_y[~zero_position]=0
-            shuffle_indices_1d=torch.nonzero(shuffle_indices_y==1)[:,1]
-            # shuffle_indices_y=F.one_hot(shuffle_indices_1d)
-
-            # bceloss
-            batch_loss=loss_function(y_poi_int,sorted_indices)
-            b_avg_loss=loss_function(outputs,(shuffle_indices_y.to(torch.float32)).cuda())
-            
-            #pairwise loss
-            # b_avg_loss=loss_function(outputs,torch.ones_like(outputs).to(torch.float32).cuda())
-            
-            b_avg_loss.backward()
-            optimizer.step()
-            train_epoch_loss+=b_avg_loss
-            
-
-            tra_acc_1+=accuracy(sorted_indice,shuffle_indices_1d,1)#多元，1d标签
-            acc_5+=accuracy(sorted_indice,shuffle_indices_1d,5)
-            mrr+=MRR(sorted_indice,shuffle_indices_1d)
-
-        end=datetime.now()
-        total=(end-start).total_seconds()
-        print('-- total:@ %.3fs=%.2fh'%(total,total/3600))
-        print('tra:',
-              'epoch:[{}/{}]\t'.format(epoch,early_stop.counter),
-              'loss:{:.4f}\t'.format(train_epoch_loss),
-              'acc@1:{:.4f}\t'.format(tra_acc_1/len_tra),
-              'acc@5:{:.4f}\t'.format(acc_5/len_tra),
-              'mrr:{:.4f}\t'.format(mrr[0]/len_tra))#取[0]是因为MRR中where函数，返回了tensor。tensor不支持.format
-        if epoch%1==0:
-            torch.cuda.empty_cache()
-            with torch.no_grad():
-                model.eval()
-                test_epoch_loss=0
-                acc_1,acc_5,acc_10,acc_15=0,0,0,0
-                mrr=0
-                for batch_step,inputs in enumerate(tes_inputs):
-                    inputs=to_cuda(inputs)
-                    # second_importance=inputs[-1]
-                    y=inputs[-1]
-                    # pref_inputs=inputs[7:-1]
-                    pref_inputs=inputs[8:]
-                    stgn_inputs=inputs[:8]
-                    model_inputs=[pref_inputs,stgn_inputs]#,second_importance]
-                    outputs,shuffle_indices=model(model_inputs,num_negs[1])
-                    _,sorted_indice=torch.sort(outputs,dim=-1,descending=True)
-
-                    zero_position=(shuffle_indices==0)#因为正样本拼接在第一个，下标为0，找到0的位置则得到正样本位置（弃用poi_int,用位置来标识poi)
-                    shuffle_indices_y=torch.zeros_like(shuffle_indices)#二元target
-                    shuffle_indices_y[zero_position]=1#确认在y中，真值的位置，该位置取1
-                    shuffle_indices_y[~zero_position]=0
-                    shuffle_indices_1d=torch.nonzero(shuffle_indices_y==1)[:,1]#得到下标矩阵（user，poi_num）真实y的位置
-                    b_avg_loss=loss_function(outputs,(shuffle_indices_y.to(torch.float32)).cuda())
-                    #pairwise_loss
-                    # b_avg_loss=loss_function(outputs,torch.ones_like(outputs).to(torch.float32).cuda())
-
-                    test_epoch_loss+=b_avg_loss
-                    acc_1+=accuracy(sorted_indice,shuffle_indices_1d,1)
-                    acc_5+=accuracy(sorted_indice,shuffle_indices_1d,5)
-                    acc_10+=accuracy(sorted_indice,shuffle_indices_1d,10)
-                    acc_15+=accuracy(sorted_indice,shuffle_indices_1d,15)
-                    mrr+=MRR(sorted_indice,shuffle_indices_1d)
-                early_stop(test_epoch_loss,tra_acc_1)
-            print(
-                'val:',
-                'epoch:[{}/{}]\t'.format(epoch,early_stop.counter),
-                'tes_loss:{:4f}\t'.format(test_epoch_loss),
-                'acc@1:{:.4f}\t'.format(acc_1/len_tes),
-                'acc@5:{:.4f}\t'.format(acc_5/len_tes),
-                'acc@10:{:.4f}\t'.format(acc_10/len_tes),
-                'acc@15:{:.4f}\t'.format(acc_15/len_tes),
-                'mrr:{:.4f}\t'.format(mrr[0]/len_tes)
-            )
-            if early_stop.early_stop:
-                    print('Early Stop.')
 
 @exec_time
 def main_nyc():
@@ -469,56 +345,6 @@ def main_tky():
     mlp_units=[1024,512,1]
     num_x=[2294,7057,261,95,20,8,25]#[num_user,num_poi, num_cat,num_hsh5,num_rec,num_day,num_hours]
                                      #[1,2293],[0,7056],[0,260],[0,72]
-    run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_decay,
-                              pref_embs,stgn_embs,mlp_units,dir_inputs,len_tra,len_tes,num_negs,head_num)
-    pass
-
-
-@exec_time
-def main_cal():
-    dir_inputs='code/my_code/dataset/data/CAL/data_process_cal.pkl'
-    num_negs=[170,170]
-    len_tra,len_tes=2654,293 # 3240
-
-    batch_size=10
-    patience=500
-    delta=1
-
-    num_layers=1
-    head_num=4
-    dropout=[0.1,0.1,0.1]
-    lr=0.0001
-    weight_decay=0
-    pref_embs=[128,64,32,8,16,32]#(hidden,poi,cat,month,day,hour,hsh5)
-    stgn_embs=[512,128,350,120,13,16]#(hidden,user,poi,month,cat,hsh5)
-    mlp_units=[1024,512,1]
-    num_x=[114,170,73,21,20,8,25]#[num_user,num_poi, num_cat,num_hsh5,num_rec,num_day,num_hours]
-                                     #114,170,73,21,num_rec,12,7,24
-    run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_decay,
-                              pref_embs,stgn_embs,mlp_units,dir_inputs,len_tra,len_tes,num_negs,head_num)
-    pass
-
-
-@exec_time
-def main_sin():
-    dir_inputs='code/my_code/dataset/data/SIN/data_process_sin.pkl'
-    num_negs=[3959,3959]
-    len_tra,len_tes=153445,1193 # 155831
-
-    batch_size=20
-    patience=500
-    delta=1
-
-    num_layers=1
-    head_num=4
-    dropout=[0.1,0.1,0.1]
-    lr=0.0001
-    weight_decay=0
-    pref_embs=[128,64,32,8,16,32]#(hidden,poi,cat,month,day,hour,hsh5)
-    stgn_embs=[512,128,350,120,13,16]#(hidden,user,poi,month,cat,hsh5)
-    mlp_units=[1024,512,1]
-    num_x=[3678,3959,257,21,20,8,25]#[num_user,num_poi, num_cat,num_hsh5,num_rec,num_months,num_day,num_hours]
-                                     #114,170,73,21,num_rec,12,7,24
     run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_decay,
                               pref_embs,stgn_embs,mlp_units,dir_inputs,len_tra,len_tes,num_negs,head_num)
     pass

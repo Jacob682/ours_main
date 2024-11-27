@@ -10,9 +10,9 @@ sys.path.append('code/my_code/my_model/preference_model/model_part2/')
 sys.path.append('/home/liuqiuyu/code/my_code/my_model/both_model/')
 from two_model import Two_Model
 from abla_two_model import Abl_Two_Model
-from stgn import STGN_Model
-from preference_model import Preference_Model,MLP,BahdanauAttention
-from utils import to_cuda,EarlyStop
+from stgn_model.stgn import STGN_Model
+from preference_model.model_part2.preference_model import Preference_Model,MLP,BahdanauAttention
+from utils.utils import to_cuda,EarlyStop
 
 
 class Preference_Stgn(nn.Module):

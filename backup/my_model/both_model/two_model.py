@@ -6,10 +6,10 @@ from torch.utils.data import DataLoader,Dataset
 import datetime
 import os
 import sys
-sys.path.append('code/my_code/my_model/stgn_model/')
-sys.path.append('code/my_code/my_model/preference_model/model_part2/')
-from stgn import STGN,STGN_MLP
-from preference_model import BahdanauAttention_softmax
+# sys.path.append('code/my_code/my_model/stgn_model/')
+# sys.path.append('code/my_code/my_model/preference_model/model_part2/')
+from stgn_model.stgn import STGN,STGN_MLP
+from preference_model.model_part2.preference_model import BahdanauAttention_softmax
 
 class Two_Model(nn.Module):
     '''

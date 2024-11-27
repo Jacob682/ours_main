@@ -208,7 +208,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 optimizer.step()
                 train_epoch_loss = train_epoch_loss + b_avg_loss
 
-                # torch.cuda.empty_cache()
+                torch.cuda.empty_cache()
                 
                 
                 # 计算评价指标
@@ -235,11 +235,11 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
 def main_nyc():
     dir_input_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
                         '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
-    dir_output_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_prepared.pkl',\
-                        '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_prepared.pkl']
+    dir_output_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_40_prepared.pkl',\
+                        '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_40_prepared.pkl']
     num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
-    batch_size, num_epoch = 40, 100
+    batch_size, num_epoch = 512, 100
     delta = 1
     num_layers = 1
     num_head = 1

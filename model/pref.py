@@ -82,6 +82,7 @@ class Preference_Model(nn.Module):
 
         inputs_subs_idx_cum=torch.cumsum(inputs_subs_idx,dim=1)
         inputs_embs_expand_subs_cum=torch.cumsum(inputs_embs_expand_subs,dim=1)
+
         inputs_embs_expand_subs_cum_avg=divide_no_nan(inputs_embs_expand_subs_cum,inputs_subs_idx_cum)
 
         cum_subs_avg=inputs_embs_expand_subs_cum_avg#pooling后的每周的打卡嵌入(bs,sq,7,embs)

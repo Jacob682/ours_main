@@ -77,8 +77,8 @@ def accuracy(indices,batch_y,k,count=0,delta_dist=0):
     hit=0
     for i in range(indices.size(0)):#一个用户
         sort=indices[i]
-        print("batch y a :",batch_y)
-        print("sort[k] :",sort[:k])
+        # print("batch y a :",batch_y)
+        # print("sort[k] :",sort[:k])
         if batch_y[i].long() in sort[:k]:
             hit+=1
     return hit

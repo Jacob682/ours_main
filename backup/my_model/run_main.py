@@ -307,7 +307,7 @@ def main_nyc():
     num_negs=[3906,3906]#neg_num跟随load_data变,nyc,neg_num取负采样+1
     len_tra,len_tes=80727,1078
 
-    batch_size=10
+    batch_size=50
     patience=500
     delta=1
 
@@ -326,31 +326,6 @@ def main_nyc():
                               pref_embs,stgn_embs,mlp_units,dir_inputs,len_tra,len_tes,num_negs,head_num)
     pass
 
-
-
-@exec_time
-def main_sin():
-    dir_inputs='code/my_code/dataset/data/SIN/data_process_sin.pkl'
-    num_negs=[3959,3959]
-    len_tra,len_tes=153445,1193 # 155831
-
-    batch_size=20
-    patience=500
-    delta=1
-
-    num_layers=1
-    head_num=4
-    dropout=[0.1,0.1,0.1]
-    lr=0.0001
-    weight_decay=0
-    pref_embs=[128,64,32,8,16,32]#(hidden,poi,cat,month,day,hour,hsh5)
-    stgn_embs=[512,128,350,120,13,16]#(hidden,user,poi,month,cat,hsh5)
-    mlp_units=[1024,512,1]
-    num_x=[3678,3959,257,21,20,8,25]#[num_user,num_poi, num_cat,num_hsh5,num_rec,num_months,num_day,num_hours]
-                                     #114,170,73,21,num_rec,12,7,24
-    run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_decay,
-                              pref_embs,stgn_embs,mlp_units,dir_inputs,len_tra,len_tes,num_negs,head_num)
-    pass
 
                     
 if __name__=='__main__':

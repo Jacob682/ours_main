@@ -3,13 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from datetime import datetime
 import math
-import sys
-sys.path.append('code/my_code/my_model/utils/')
-sys.path.append('code/my_code/my_model/stgn_model/')
-sys.path.append('code/my_code/my_model/preference_model/model_part2/')
-sys.path.append('/home/liuqiuyu/code/my_code/my_model/both_model/')
-from two_model import Two_Model
-from abla_two_model import Abl_Two_Model
+
+from both_model.two_model import Two_Model
+from both_model.abla_two_model import Abl_Two_Model
 from stgn_model.stgn import STGN_Model
 from preference_model.model_part2.preference_model import Preference_Model,MLP,BahdanauAttention
 from utils.utils import to_cuda,EarlyStop

@@ -82,10 +82,11 @@ class Abl_Two_Model(nn.Module):
             y=torch.where(mask,torch.ones_like(y),y)
             result=x/y
             result=torch.where(mask,torch.tensor(nan_value),result)
+            # result[mask] = nan_value
             return result
-        subs_days_masks=subs_days_masks.float()
-        cum_idx=torch.cumsum(subs_days_masks,dim=1)#用户在某时间步前，在周x打卡个数(batch_size,seqlen,7)
-        cum_idx_mask=(cum_idx==0.).float()#如果某时间步在该星期x没有打卡，则取1,(batch_size,seqlen,7)
+        subs_days_masks=subs_days_masks.float() # (batch_size, seq_len, 7) 标记是否在周x打卡
+        cum_idx=torch.cumsum(subs_days_masks,dim=1)# 用户在某时间步前，在周x打卡个数(batch_size,seqlen,7)
+        cum_idx_mask=(cum_idx==0.).float()#如果某时间步在该星期x没有打卡，则取1(true),(batch_size,seqlen,7)
         cum_idx_mask=cum_idx_mask.unsqueeze(-1)#扩展一维（bs，sq，7，1）
 
         # inputs_embs=torch.cat((poi_embs,ctxt_embs),2)#(b,seq,emb)
@@ -168,12 +169,12 @@ class Abl_Two_Model(nn.Module):
         inputs_embs=torch.cat((x_poi_embs,x_ctxt_embs),2)
         
         #1做正负样本拼接，正样本放在第一个
-        neg_poi_info_embs=torch.cat((neg_poi_int,neg_cat_int),-1)#(b,neg_num,emb)
-        posi_poi_info_embs=torch.cat((y_poi_int,y_cat_int),-1)#(b,1,emb)
-        ipt_q=torch.cat((posi_poi_info_embs.unsqueeze(1),neg_poi_info_embs),dim=1)#正样本和负样本的poi_embs拼接
+        neg_poi_info_embs=torch.cat((neg_poi_int,neg_cat_int),-1)#(b,neg_num,emb) 200M
+        posi_poi_info_embs=torch.cat((y_poi_int,y_cat_int),-1)#(b,1,emb) 
+        ipt_q=torch.cat((posi_poi_info_embs.unsqueeze(1),neg_poi_info_embs),dim=1)#正样本和负样本的poi_embs拼接 100M
         #打乱正负样本位置和对应candi_seceond_ints位置
         shuffled_indices=[torch.randperm(ipt_q.size(1)) for _ in range(ipt_q.size(0))]#(bs,neg_num)
-        ipt_q=torch.stack([ipt_q[i,shuffled_indices[i],:] for i in range(ipt_q.size(0))])#(b,21,embs)
+        ipt_q=torch.stack([ipt_q[i,shuffled_indices[i],:] for i in range(ipt_q.size(0))])#(b,21,embs) 300M
         
         #做正负secondsd的拼接
         # neg_seconds=pref_inputs[12]#(bs,20)
@@ -184,14 +185,14 @@ class Abl_Two_Model(nn.Module):
         #1.2正负样本poi_info和ctxt_info拼接
         ipt_q=torch.cat((ipt_q,y_day.unsqueeze(1).expand(-1,neg_num+1,-1),
                                y_hour.unsqueeze(1).expand(-1,neg_num+1,-1),
-                               y_hs5.unsqueeze(1).expand(-1,neg_num+1,-1)),dim=-1)#(b,21,embs)
+                               y_hs5.unsqueeze(1).expand(-1,neg_num+1,-1)),dim=-1)#(b,21,embs) 100M
         
         #在pooling前加self-attn
         # self_attn_out,_=self.multihead_attn(inputs_embs,inputs_embs,inputs_embs)#q,kv
 
         #pooling:每个时间步都pooling了
             #day pooling
-        cum_subs_avg,cum_subs_mask=self.fun_avg_pooling(inputs_embs,pref_inputs[5])#embs=512,(batch_size,sq,7,embs_size_pois+embs_size_ctxt)
+        cum_subs_avg,cum_subs_mask=self.fun_avg_pooling(inputs_embs,pref_inputs[5])#embs=512,(batch_size,sq,7,embs_size_pois+embs_size_ctxt) 100m
         cum_subs_avg=cum_subs_avg[:,-1,:,:].squeeze(1)
         cum_subs_mask=cum_subs_mask[:,-1:,:].squeeze(1)
         cum_subs_mask=cum_subs_mask.unsqueeze(1).expand(-1,num_neg,-1,-1)
@@ -201,13 +202,13 @@ class Abl_Two_Model(nn.Module):
         # cum_subs_mask_month=cum_subs_mask_month[:,-1:,:].squeeze(1)
         # cum_subs_mask_month=cum_subs_mask_month.unsqueeze(1).expand(-1,num_neg,-1,-1)
             #hour pooling
-        cum_subs_avg_hour,cum_subs_mask_hour=self.fun_avg_pooling(inputs_embs,pref_inputs[6])
+        cum_subs_avg_hour,cum_subs_mask_hour=self.fun_avg_pooling(inputs_embs,pref_inputs[6]) # 1.2g
         cum_subs_avg_hour=cum_subs_avg_hour[:,-1,:,:].squeeze(1)
         cum_subs_mask_hour=cum_subs_mask_hour[:,-1:,:].squeeze(1)
         cum_subs_mask_hour=cum_subs_mask_hour.unsqueeze(1).expand(-1,num_neg,-1,-1)
             #zoom pooling
         cum_subs_avg_hsh,cum_subs_mask_hsh=self.fun_avg_pooling(inputs_embs,pref_inputs[7])
-        cum_subs_avg_hsh=cum_subs_avg_hsh[:,-1,:,:].squeeze(1)
+        cum_subs_avg_hsh=cum_subs_avg_hsh[:,-1,:,:].squeeze(1) #5g
         cum_subs_mask_hsh=cum_subs_mask_hsh[:,-1:,:].squeeze(1)
         cum_subs_mask_hsh=cum_subs_mask_hsh.unsqueeze(1).expand(-1,num_neg,-1,-1)
 
@@ -234,10 +235,10 @@ class Abl_Two_Model(nn.Module):
         # attn_out_month,attn_w_month=self.attn(queries,keys_months,cum_subs_mask_month,num_neg)
             #hour
         keys_hour=cum_subs_avg_hour
-        attn_out_hour,_=self.attn(queries,keys_hour,cum_subs_mask_hour,num_neg)
+        attn_out_hour,_=self.attn(queries,keys_hour,cum_subs_mask_hour,num_neg) # 2g
             #hsh
         keys_hsh=cum_subs_avg_hsh
-        attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg)
+        attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg) # 10g
         
 
         #month-pooling concat

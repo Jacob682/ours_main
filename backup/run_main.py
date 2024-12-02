@@ -16,11 +16,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import sys
-sys.path.append('code/my_code/my_model/utils')
 from utils import accuracy,MRR,EarlyStop,to_cuda
-sys.path.append('code/my_code/my_model/both_model/')
 from preference_sequential_model import Preference_Stgn
-sys.path.append('code/my_code/dataset/dataset_process')
 from load_data_psm import load_data_main_nyc,load_data_main_tky 
 
 from torch.nn.parallel import DataParallel

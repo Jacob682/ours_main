@@ -81,7 +81,8 @@ class Two_Model(nn.Module):
             mask=y==0
             y=torch.where(mask,torch.ones_like(y),y)
             result=x/y
-            result=torch.where(mask,torch.tensor(nan_value),result)
+            # result=torch.where(mask,torch.tensor(nan_value),result)
+            result[mask] = nan_value
             return result
         subs_days_masks=subs_days_masks.float()
         cum_idx=torch.cumsum(subs_days_masks,dim=1)#用户在某时间步前，在周x打卡个数(batch_size,seqlen,7)
@@ -169,8 +170,10 @@ class Two_Model(nn.Module):
         posi_poi_info_embs=torch.cat((y_poi_int,y_cat_int),-1)#(b,1,emb)
         ipt_q=torch.cat((posi_poi_info_embs.unsqueeze(1),neg_poi_info_embs),dim=1)#正样本和负样本的poi_embs拼接
         #打乱正负样本位置和对应candi_seceond_ints位置
-        shuffled_indices=[torch.randperm(ipt_q.size(1)) for _ in range(ipt_q.size(0))]#(bs,neg_num)
-        ipt_q=torch.stack([ipt_q[i,shuffled_indices[i],:] for i in range(ipt_q.size(0))])#(b,21,embs)
+        # shuffled_indices=[torch.randperm(ipt_q.size(1)) for _ in range(ipt_q.size(0))]#(bs,neg_num)
+        shuffled_indices = torch.argsort(torch.rand(ipt_q.size(0), ipt_q.size(1), device=ipt_q.device), dim=1)
+        # ipt_q=torch.stack([ipt_q[i,shuffled_indices[i],:] for i in range(ipt_q.size(0))])#(b,21,embs)
+        ipt_q = torch.gather(ipt_q, 1, shuffled_indices.unsqueeze(-1).expand(-1, -1, ipt_q.size(2)))  # 按随机索引打乱
         
         #做正负secondsd的拼接
         # neg_seconds=pref_inputs[12]#(bs,20)
@@ -179,9 +182,15 @@ class Two_Model(nn.Module):
         #打乱正负second的位置
         # shuffled_neg_seconds=torch.stack([candi_seconds[i,shuffled_indices[i]] for i in range(candi_seconds.size(0))])
         #1.2正负样本poi_info和ctxt_info拼接
-        ipt_q=torch.cat((ipt_q,y_day.unsqueeze(1).expand(-1,neg_num+1,-1),
-                               y_hour.unsqueeze(1).expand(-1,neg_num+1,-1),
-                               y_hs5.unsqueeze(1).expand(-1,neg_num+1,-1)),dim=-1)#(b,21,embs)
+        # ipt_q=torch.cat((ipt_q,y_day.unsqueeze(1).expand(-1,neg_num+1,-1),
+        #                        y_hour.unsqueeze(1).expand(-1,neg_num+1,-1),
+        #                        y_hs5.unsqueeze(1).expand(-1,neg_num+1,-1)),dim=-1)#(b,21,embs)
+        expanded_contexts = torch.cat([
+            y_day.unsqueeze(1),
+            y_hour.unsqueeze(1),
+            y_hs5.unsqueeze(1)
+            ], dim=-1).expand(-1, neg_num + 1, -1)
+        ipt_q = torch.cat((ipt_q, expanded_contexts), dim=-1)
         
         #在pooling前加self-attn
         # self_attn_out,_=self.multihead_attn(inputs_embs,inputs_embs,inputs_embs)#q,kv

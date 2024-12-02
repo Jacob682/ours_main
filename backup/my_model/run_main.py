@@ -268,8 +268,6 @@ def run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_de
                     shuffle_indices_y[~zero_position]=0
                     shuffle_indices_1d=torch.nonzero(shuffle_indices_y==1)[:,1]#得到下标矩阵（user，poi_num）真实y的位置
                     b_avg_loss=loss_function(outputs,(shuffle_indices_y.to(torch.float32)).cuda())
-                    #pairwise_loss
-                    # b_avg_loss=loss_function(outputs,torch.ones_like(outputs).to(torch.float32).cuda())
 
                     test_epoch_loss+=b_avg_loss
                     acc_1+=accuracy(sorted_indice,shuffle_indices_1d,1)

@@ -86,7 +86,7 @@ class Abl_Two_Model(nn.Module):
             return result
         subs_days_masks=subs_days_masks.float() # (batch_size, seq_len, 7) 标记是否在周x打卡
         cum_idx=torch.cumsum(subs_days_masks,dim=1)# 用户在某时间步前，在周x打卡个数(batch_size,seqlen,7)
-        cum_idx_mask=(cum_idx==0.).float()#如果某时间步在该星期x没有打卡，则取1(true),(batch_size,seqlen,7)
+        cum_idx_mask=(cum_idx==0.).float()# 如果某时间步在该星期x没有打卡，则取1(true),(batch_size,seqlen,7)
         cum_idx_mask=cum_idx_mask.unsqueeze(-1)#扩展一维（bs，sq，7，1）
 
         # inputs_embs=torch.cat((poi_embs,ctxt_embs),2)#(b,seq,emb)

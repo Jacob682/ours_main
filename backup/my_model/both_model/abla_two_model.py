@@ -77,13 +77,16 @@ class Abl_Two_Model(nn.Module):
         return:
                 avg_subs_days=(batch_size,seq_len,7,embs_size_pois+embs_size_ctxt)
         '''
-        def divide_no_nan(x,y,nan_value=0.0):
-            mask=y==0
-            y=torch.where(mask,torch.ones_like(y),y)
-            result=x/y
-            result=torch.where(mask,torch.tensor(nan_value),result)
-            # result[mask] = nan_value
+        def divide_no_nan(x, y, large_value=1e9):
+            '''
+            y (bs, sq, 7, 1),是计数, y可以不参与反向传播
+            x (bs, sq, 7, embs), 是emb, 参与反向传播
+            '''
+            mask = y == 0
+            y = y.masked_fill(mask, large_value)
+            result = x / y
             return result
+
         subs_days_masks=subs_days_masks.float() # (batch_size, seq_len, 7) 标记是否在周x打卡
         cum_idx=torch.cumsum(subs_days_masks,dim=1)# 用户在某时间步前，在周x打卡个数(batch_size,seqlen,7)
         cum_idx_mask=(cum_idx==0.).float()# 如果某时间步在该星期x没有打卡，则取1(true),(batch_size,seqlen,7)
@@ -92,7 +95,7 @@ class Abl_Two_Model(nn.Module):
         # inputs_embs=torch.cat((poi_embs,ctxt_embs),2)#(b,seq,emb)
         inputs_embs_expand=inputs_embs.unsqueeze(2)#(bs,sl,1,embs_size)
         inputs_subs_idx=subs_days_masks.unsqueeze(3)#(bs,sl,7,1),用户的打卡在星期上的扩展掩码
-        inputs_embs_expand_subs=inputs_embs_expand*inputs_subs_idx#(bs,sq,7,embs_size)将inputs_embs_expand划分到7类
+        inputs_embs_expand_subs=inputs_embs_expand*inputs_subs_idx#(bs,sq,7,embs_size)将inputs_embs_expand划分到7类 | zoom: 3g
 
         inputs_subs_idx_cum=torch.cumsum(inputs_subs_idx,dim=1)
         inputs_embs_expand_subs_cum=torch.cumsum(inputs_embs_expand_subs,dim=1)

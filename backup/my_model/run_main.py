@@ -293,11 +293,11 @@ def run_prefstgn(batch_size,patience,delta,num_layers,num_x,dropout,lr,weight_de
 @exec_time
 def main_nyc():
     dir_inputs='/home/liuqiuyu/code/my_code/dataset/data_process.pkl'
-    dir_outputs = '/data/liuqiuyu/POI/old_model/data_process_nyc_dataloader_20.pkl'
+    dir_outputs = '/data/liuqiuyu/POI/old_model/data_process_nyc_dataloader_30.pkl'
     num_negs=[3906,3906]#neg_num跟随load_data变,nyc,neg_num取负采样+1
     len_tra,len_tes=80727,1078
 
-    batch_size=20
+    batch_size=30
     patience=500
     delta=1
 

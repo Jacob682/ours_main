@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset
+from torch.cuda.amp import autocast
+from torch.utils.checkpoint import checkpoint
 import datetime
 import os
 class BahdanauAttention(nn.Module):
@@ -22,13 +24,14 @@ class BahdanauAttention(nn.Module):
                 attn_out：每个q对k的分数(bs,sq,21,hidden_size)
                 attn_weight:最后attn的输出分数(bs,sq,21,7,1)
         '''
-        queries,keys=self.dropout(queries),self.dropout(keys)
-        
-        scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#(bs,sq,21,1,hidden)+(bs,sq,21,7,hidden)=(bs,sq,21,7,hidden)->tanh之后不变，->(bs,sq,21,7,1)
-        if cum_subs_masks is not None:#如果某时间步在某星期没有打卡，则在scores（注意力分数）加一个很大的负偏执，使得在softmax取值趋向0，抑制对这个元素的关注
-            scores+=(cum_subs_masks*-1e9)
-        attn_weights=F.softmax (scores,dim=-1)#score(bs,neg_num,hidden)
-        attn_out=attn_weights*keys#((bs,neg_num,hidden)*(bs,neg_num,hidden)
+        with autocast():
+            queries,keys=self.dropout(queries),self.dropout(keys)
+            
+            scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#(bs,sq,21,1,hidden)+(bs,sq,21,7,hidden)=(bs,sq,21,7,hidden)->tanh之后不变，->(bs,sq,21,7,1)
+            if cum_subs_masks is not None:#如果某时间步在某星期没有打卡，则在scores（注意力分数）加一个很大的负偏执，使得在softmax取值趋向0，抑制对这个元素的关注
+                scores+=(cum_subs_masks*-1e9)
+            attn_weights=F.softmax (scores,dim=-1)#score(bs,neg_num,hidden)
+            attn_out=attn_weights*keys#((bs,neg_num,hidden)*(bs,neg_num,hidden)
         return attn_out,attn_weights
 
 class BahdanauAttention_softmax(nn.Module):
@@ -40,25 +43,30 @@ class BahdanauAttention_softmax(nn.Module):
         self.dropout=nn.Dropout(dropout)
     def forward(self,queries,keys,cum_subs_masks,num_neg):
         '''
-        queries:(bs,sq,21,embs)
-        keys:(bs,sq,7,hidden_size)
+        queries:(bs,21,embs)
+        keys:(bs,7,hidden_size)
         values(bs,sq,7,embs),即keys
         cum_subs_masks:(bs,sq,7,1)，某时间步在星期x没有打卡则取1
         return:
                 attn_out：每个q对k的分数(bs,sq,21,hidden_size)
                 attn_weight:最后attn的输出分数(bs,sq,21,7,1)
         '''
-        queries,keys=self.dropout(queries),self.dropout(keys)
-        
-        queries=queries.unsqueeze(-2)#(bs,sq,21,1,embs),(bs,21,1,embs)扩展一个维度，不复制是因为在相加的时候会广播
-        keys=keys.unsqueeze(1).expand(-1,num_neg,-1,-1)#为了对21个样本都进行计算分数(bs,sq,7,hidden_size)->(bs,sq,21,7,hidden)
-        # masks=cum_subs_masks.unsqueeze(1).expand(-1,num_neg,-1,-1)#(bs,sq,7,embs)->(bs,sq,21,7,1)
-        scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#(bs,sq,21,1,hidden)+(bs,sq,21,7,hidden)=(bs,sq,21,7,hidden)->tanh之后不变，->(bs,sq,21,7,1)
-        if cum_subs_masks is not None:#如果某时间步在某星期没有打卡，则在scores（注意力分数）加一个很大的负偏执，使得在softmax取值趋向0，抑制对这个元素的关注
-            scores+=(cum_subs_masks*-1e9)
-        attn_weights=F.softmax(scores,dim=-2)#(bs,sq,21,7,1)
-        attn_out=attn_weights*keys#(bs,sq,21,7,1)*(bs,sq,21,7,hidden_size)->(bs,sq,21,7,hidden_size)
-        attn_out=torch.sum(attn_out,dim=-2)#(bs,sq,21,hidden_size)，将7个hidden_size加到一起
+        with autocast():
+            queries,keys=self.dropout(queries),self.dropout(keys)
+            
+            queries=queries.unsqueeze(-2)#(bs,21,1,embs),(bs,21,1,embs)扩展一个维度，不复制是因为在相加的时候会广播
+            keys=keys.unsqueeze(1).expand(-1,num_neg,-1,-1)#为了对21个样本都进行计算分数(bs,7,hidden_size)->(bs,21,7,hidden)
+
+            def forward_pass_scores(query,key):
+                return self.wv(F.tanh(self.wq(query)+self.wk(key)))
+            
+            scores = checkpoint(forward_pass_scores,queries,keys)#(bs,21,7,1)
+            # scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#3g/8g (bs,21,1,hidden)+(bs,21,7,hidden)=(bs,21,7,hidden)->tanh之后不变，->(bs,21,7,1)
+            if cum_subs_masks is not None:#如果某时间步在某星期没有打卡，则在scores（注意力分数）加一个很大的负偏执，使得在softmax取值趋向0，抑制对这个元素的关注
+                scores+=(cum_subs_masks*-1e9)
+            attn_weights=F.softmax(scores,dim=-2)#(bs,sq,21,7,1)
+            attn_out=attn_weights*keys#(bs,sq,21,7,1)*(bs,sq,21,7,hidden_size)->(bs,sq,21,7,hidden_size)
+            attn_out=torch.sum(attn_out,dim=-2)#(bs,sq,21,hidden_size)，将7个hidden_size加到一起
         return attn_out,attn_weights
 
 

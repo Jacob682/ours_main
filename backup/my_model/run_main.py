@@ -307,7 +307,7 @@ def main_nyc():
     lr=0.0001
     weight_decay=0
     pref_embs=[128,64,32,8,16,32]#(hidden,poi,cat,day,hour,hsh5)
-    stgn_embs=[512,128,350,120,13,16]#(hidden,user,poi,cat,month/hour,hsh5)
+    stgn_embs=[256,128,128,64,13,16]#(hidden,user,poi,cat,month/hour,hsh5)
     mlp_units=[1024,512,1]
                                         #   0        1       2     3      4       5      6             
     num_x=[1078,3906,284,95,20,8,25]#[num_ueser,num_poi,num_cat,num_hsh,num_rec,num_day,num_hours],hsh[0-95],共96个，但该集中娶不到95

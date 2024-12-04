@@ -84,22 +84,6 @@ class Preference_Stgn(nn.Module):
         concat_out=torch.cat((queries,day_attn_out,hour_attn_out,hsh5_attn_out,stgn_cat_attn_out,stgn_loc_attn_out),dim=-1)#(pref_hidden_size*3+sum(pref_embs[1:]))
         model_out=self.mlp(concat_out)
 
-
-        #加second_importance
-        # neg_importance=torch.stack([second_importances[i,shuffled_seconds[i]] for i in range(shuffled_seconds.size(0))])#(bs,neg_num)
-        # neg_importance=neg_importance.to(torch.float32)#(bs,neg_num,1)
-        # pc_out=self.acti_pc(self.dense(neg_importance))#(b,neg_num,1)
-        # out=torch.sigmoid(model_out.unsqueeze(-1)@self.mo_w+pc_out@self.pc_w)#(b,neg_num,1)
-        # out=torch.sigmoid((model_out*neg_importance).unsqueeze(-1))
-        # out=out.squeeze(-1)
-
-        #pair_wise loss
-        # u_embs=(self.sequential_model.embed_user(stgn_inputs[0])).unsqueeze(1).expand(-1,num_neg,-1)#(bs,num_neg+1,embs)
-        # restored_indices=[torch.argsort(shuffled_indices[i]) for i in range(model_out.size(0))]
-        # i_embs=torch.stack([model_out[i,restored_indices[i],:] for i in range(model_out.size(0))],dim=0)#(bs,num_neg+1,embs)
-        # substracted=(u_embs@i_embs.transpose(1,2))[:,0,0]#(bs)
-        # substract=(u_embs@i_embs.transpose(1,2))[:,0,1:]#(bs,neg_num)
-        # out=torch.sigmoid((substracted.unsqueeze(-1).expand(-1,num_neg-1)-substract).unsqueeze(-1)).squeeze(-1)#(bs,20)
         
         return model_out,torch.stack(shuffled_indices)
     

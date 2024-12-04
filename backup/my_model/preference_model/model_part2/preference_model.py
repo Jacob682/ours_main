@@ -41,6 +41,10 @@ class BahdanauAttention_softmax(nn.Module):
         self.wq=nn.Linear(query_size,hidden_size)
         self.wv=nn.Linear(hidden_size,1)
         self.dropout=nn.Dropout(dropout)
+    
+    def forward_pass_scores(self, query, key):
+                return self.wv(F.tanh(self.wq(query)+self.wk(key)))
+    
     def forward(self,queries,keys,cum_subs_masks,num_neg):
         '''
         queries:(bs,21,embs)
@@ -57,13 +61,11 @@ class BahdanauAttention_softmax(nn.Module):
             queries=queries.unsqueeze(-2)#(bs,21,1,embs),(bs,21,1,embs)扩展一个维度，不复制是因为在相加的时候会广播
             keys=keys.unsqueeze(1).expand(-1,num_neg,-1,-1)#为了对21个样本都进行计算分数(bs,7,hidden_size)->(bs,21,7,hidden)
 
-            def forward_pass_scores(query,key):
-                return self.wv(F.tanh(self.wq(query)+self.wk(key)))
             
-            scores = checkpoint(forward_pass_scores,queries,keys)#(bs,21,7,1)
+            scores = checkpoint(self.forward_pass_scores, queries, keys)#(bs,21,7,1)
             # scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#3g/8g (bs,21,1,hidden)+(bs,21,7,hidden)=(bs,21,7,hidden)->tanh之后不变，->(bs,21,7,1)
             if cum_subs_masks is not None:#如果某时间步在某星期没有打卡，则在scores（注意力分数）加一个很大的负偏执，使得在softmax取值趋向0，抑制对这个元素的关注
-                scores+=(cum_subs_masks*-1e9)
+                scores = scores + (cum_subs_masks*-1e9)
             attn_weights=F.softmax(scores,dim=-2)#(bs,sq,21,7,1)
             attn_out=attn_weights*keys#(bs,sq,21,7,1)*(bs,sq,21,7,hidden_size)->(bs,sq,21,7,hidden_size)
             attn_out=torch.sum(attn_out,dim=-2)#(bs,sq,21,hidden_size)，将7个hidden_size加到一起

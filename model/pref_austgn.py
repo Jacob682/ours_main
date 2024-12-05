@@ -41,7 +41,7 @@ class Pref_Austgn(nn.Module):
         self.preference_model = Preference_Model(pref_embs, num_x, num_layers, num_head, mlp_units[0])
         self.sequential_model = Sequential_Model(stgn_embs, num_x, mlp_units[1], num_rec) 
     
-        self.itst_mlp_bn = MLP_BN4d(mlp_units[0], 5, self.hidden_size)
+        self.itst_mlp_bn = MLP_BN4d(mlp_units[0], 4, self.hidden_size)
         self.inner_attn = BahdanauAttention_softmax(mlp_units[0][-1], self.query_size, self.hidden_size)
         self.out_mlp = MLP_LN(mlp_units[1], mlp_units[0][-1])
 

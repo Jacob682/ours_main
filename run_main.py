@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torch .nn.utils.rnn import pad_sequence
 from torch.cuda.amp import autocast
+from torch.cuda.amp import GradScaler
 from datetime import datetime
 import pickle
 import os
@@ -159,8 +160,10 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     
     model = Pref_Austgn(num_x, pref_embs, stgn_embs, mlp_units, num_layers, num_head, num_rec)
     model = model.cuda()
-    loss_function = nn.BCELoss(reduce = 'mean')
+    loss_function = nn.BCEWithLogitsLoss(reduce = 'mean')
+    # loss_function = nn.BCELoss(reduce='mean')
     optimizer = torch.optim.Adam(model.parameters(), lr, weight_decay=weight_decay)
+    scaler = GradScaler()
     
     # 在训练之前加载数据，避免每个epoch都花费2min生成数据,只执行一次
     # 调用封装的prepare_data函数
@@ -206,11 +209,12 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                     # 计算loss
                     b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
                     # 反向传播
-                b_avg_loss.backward()
-                optimizer.step()
+                scaler.scale(b_avg_loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
                 train_epoch_loss = train_epoch_loss + b_avg_loss
 
-                torch.cuda.empty_cache()
+                # torch.cuda.empty_cache()
                 
                 
                 # 计算评价指标
@@ -225,23 +229,17 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
               'loss:{:.4f}\t'.format(train_epoch_loss),
               'acc@1:{:.4f}\t'.format(tra_acc_1/len_tra),
               'acc@5:{:.4f}\t'.format(tra_acc_5/len_tra),)
-
-                
-
-                
-
-
-                
+       
 
 @exe_time
 def main_nyc():
-    dir_input_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
-                        '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
-    dir_output_lists = ['/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_40_prepared.pkl',\
-                        '/home/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_40_prepared.pkl']
+    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
+                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
+    dir_output_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_30_prepared.pkl',\
+                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_30_prepared.pkl']
     num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
-    batch_size, num_epoch = 512, 100
+    batch_size, num_epoch = 30, 100
     delta = 1
     num_layers = 1
     num_head = 1

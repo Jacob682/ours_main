@@ -53,7 +53,7 @@ class Pref_Austgn(nn.Module):
         pref_out, shuffled_indices = self.preference_model(pref_inputs, y_inputs, neg_inputs, num_neg)
         seq_out = self.sequential_model(austgn_inputs)
         
-        pref_day, pref_hour, pref_geo, queries = pref_out # (batch_size, neg_num+1, embs)
+        pref_day, pref_hour, queries = pref_out # (batch_size, neg_num+1, embs)
         seq_poi, seq_cat = seq_out # (batch_size, embs)
 
         # 需要对齐neg_num，否则没法和pref_out stack
@@ -61,7 +61,7 @@ class Pref_Austgn(nn.Module):
         seq_cat = torch.unsqueeze(seq_cat, dim=1).expand(-1, num_neg+1, -1)
 
         # inner attn
-        inner_keys = torch.stack([pref_day, pref_hour, pref_geo, seq_poi, seq_cat], dim = 2)# (batch_size, neg_num+1, key_num, embs)
+        inner_keys = torch.stack([pref_day, pref_hour, seq_poi, seq_cat], dim = 2)# (batch_size, neg_num+1, key_num, embs)
         inner_keys_bn = self.itst_mlp_bn(inner_keys) #(batch_size, neg_num, key_nums, embs)
 
         inner_attn_out, _ = self.inner_attn(queries, inner_keys_bn, None, num_neg) # q(batch_size, num_neg, embs);key(batch_size, key_num, embs);out(batch_size, neg_num, key_size)

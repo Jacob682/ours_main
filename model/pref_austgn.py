@@ -6,7 +6,8 @@ from model.pref import Preference_Model, BahdanauAttention_softmax
 from model.austgn import Sequential_Model
 from utils.utils import MLP_BN4d, MLP_LN
 
-class BahdanauAttention_softmax(nn.Module):
+
+class BahdanauAttention_softmax(nn.Module): # 用于inner-att
     def __init__(self, key_size, query_size, hidden_size):
         super().__init__()
         self.wk = nn.Linear(key_size, hidden_size)

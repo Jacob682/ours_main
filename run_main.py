@@ -4,6 +4,7 @@ import torch .nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torch .nn.utils.rnn import pad_sequence
+from torch.cuda.amp import autocast
 from datetime import datetime
 import pickle
 import os
@@ -184,26 +185,27 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 y_inputs = batch_inputs[22:27]
                 neg_inputs = batch_inputs[27:]
                 model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
-                outputs, shuffle_indices = model(model_inputs, num_neg[0]) #(batch_size, neg_num, 1)
-                outputs = torch.squeeze(outputs, dim=-1) #(batch_size, neg_num)
-                
-                '''
-                outputs: (batch_size, neg_num)
-                shuffle_indices: (bs,neg_num),bs的list，neg_num的乱序index。index为具体数字
-                '''
-                # 计算整体的loss
-                ## 对输出结果排序
-                _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
+                with autocast():
+                    outputs, shuffle_indices = model(model_inputs, num_neg[0]) #(batch_size, neg_num, 1)
+                    outputs = torch.squeeze(outputs, dim=-1) #(batch_size, neg_num)
+                    
+                    '''
+                    outputs: (batch_size, neg_num)
+                    shuffle_indices: (bs,neg_num),bs的list，neg_num的乱序index。index为具体数字
+                    '''
+                    # 计算整体的loss
+                    ## 对输出结果排序
+                    _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
 
-                #找到正样本的位置,生成bool掩码（true/false）
-                pos_position = (shuffle_indices == 0) # (batch_size, neg_num)将样本排序为0的位置设置为1，标识为正样本位置，因为正样本放在第一个位置，index=0
-                #用bool掩码得到正样本位置，并标识为1
-                y_shuffle = torch.zeros_like(shuffle_indices)
-                y_shuffle[pos_position] = 1 # 将正样本的位置设置为1
-                y_shuffle[~pos_position] = 0 # (batch_size, neg_num)
-                # 计算loss
-                b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
-                # 反向传播
+                    #找到正样本的位置,生成bool掩码（true/false）
+                    pos_position = (shuffle_indices == 0) # (batch_size, neg_num)将样本排序为0的位置设置为1，标识为正样本位置，因为正样本放在第一个位置，index=0
+                    #用bool掩码得到正样本位置，并标识为1
+                    y_shuffle = torch.zeros_like(shuffle_indices)
+                    y_shuffle[pos_position] = 1 # 将正样本的位置设置为1
+                    y_shuffle[~pos_position] = 0 # (batch_size, neg_num)
+                    # 计算loss
+                    b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
+                    # 反向传播
                 b_avg_loss.backward()
                 optimizer.step()
                 train_epoch_loss = train_epoch_loss + b_avg_loss
@@ -247,7 +249,7 @@ def main_nyc():
     lr = 0.00001
     weight_decay = 0
     pref_embs = [256, 64, 32, 8, 16, 32]
-    stgn_embs = [256, 128, 350, 120, 12, 16, 32]
+    stgn_embs = [256, 128, 150, 120, 12, 16, 32] # (hidden,user,poi,cat,month/hour,hsh5)
     pref_mlp_units = [512, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
     num_x = [1078, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个

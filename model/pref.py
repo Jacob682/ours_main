@@ -1,6 +1,7 @@
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.cuda.amp import autocast
 from utils.utils import MLP_BN
 
 
@@ -64,12 +65,12 @@ class Preference_Model(nn.Module):
         return:
                 avg_subs_days=(batch_size,seq_len,7,embs_size_pois+embs_size_ctxt)
         '''
-        def divide_no_nan(x,y,nan_value=0.0):
-            mask=y==0
-            y=torch.where(mask,torch.ones_like(y),y)
-            result=x/y
-            result=torch.where(mask,torch.tensor(nan_value),result)
+        def divide_no_nan(x, y, large_value=1e9):
+            mask = y == 0
+            y = y.masked_fill(mask, large_value)
+            result=x / y
             return result
+        
         subs_days_masks=subs_days_masks.float()
         cum_idx=torch.cumsum(subs_days_masks,dim=1)#用户在某时间步前，在周x打卡个数(batch_size,seqlen,7)
         cum_idx_mask=(cum_idx==0.).float()#如果某时间步在该星期x没有打卡，则取1,(batch_size,seqlen,7)
@@ -87,7 +88,7 @@ class Preference_Model(nn.Module):
 
         cum_subs_avg=inputs_embs_expand_subs_cum_avg#pooling后的每周的打卡嵌入(bs,sq,7,embs)
         cum_subs_mask=cum_idx_mask#(bs,sl,7,1)某时间步在星期x没有打卡则取1
-        return cum_subs_avg,cum_subs_mask
+        return cum_subs_avg[:,1,:,:].squeeze(1), cum_subs_mask[:,-1,:,:].squeeze(1)
         
     def forward(self, pref_inputs, y_inputs, neg_inputs, num_neg):
 
@@ -134,18 +135,12 @@ class Preference_Model(nn.Module):
         #pooling:每个时间步都pooling了
             #day pooling
         cum_subs_avg,cum_subs_mask=self.fun_avg_pooling(inputs_embs,pref_inputs[5])#embs=512,(batch_size,sq,7,embs_size_pois+embs_size_ctxt)
-        cum_subs_avg=cum_subs_avg[:,-1,:,:].squeeze(1)
-        cum_subs_mask=cum_subs_mask[:,-1:,:].squeeze(1)
         cum_subs_mask=cum_subs_mask.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
             #hour pooling
         cum_subs_avg_hour,cum_subs_mask_hour=self.fun_avg_pooling(inputs_embs,pref_inputs[6]) # (batch_size, sq, 24, embs)
-        cum_subs_avg_hour=cum_subs_avg_hour[:,-1,:,:].squeeze(1)
-        cum_subs_mask_hour=cum_subs_mask_hour[:,-1:,:].squeeze(1)
         cum_subs_mask_hour=cum_subs_mask_hour.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
             #zone pooling
         cum_subs_avg_hsh,cum_subs_mask_hsh=self.fun_avg_pooling(inputs_embs,pref_inputs[7]) #(batch_size, sq, 95, embs)
-        cum_subs_avg_hsh=cum_subs_avg_hsh[:,-1,:,:].squeeze(1)
-        cum_subs_mask_hsh=cum_subs_mask_hsh[:,-1:,:].squeeze(1)
         cum_subs_mask_hsh=cum_subs_mask_hsh.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
 
          #pooling->fc

@@ -277,12 +277,12 @@ def main_nyc():
                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes.pkl'] # 做成列表为了共用fun_save_data
 
-    dir_output_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_30_prepared.pkl',\
-                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_30_prepared.pkl']
-    dir_input_tst, dir_output_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes_30_prepared.pkl']
+    dir_output_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_50_prepared.pkl',\
+                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_50_prepared.pkl']
+    dir_output_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes_50_prepared.pkl']
     num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
-    batch_size, num_epoch = 30, 100
+    batch_size, num_epoch = 50, 100
     delta = 1
     num_layers = 1
     num_head = 1

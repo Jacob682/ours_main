@@ -9,6 +9,8 @@ from torch.cuda.amp import GradScaler
 from datetime import datetime
 import pickle
 import os
+import logging
+logging.basicConfig(filename='traning.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 os.environ['CUDA_VISIBLE_DEVICES']='1'
 import warnings
@@ -178,7 +180,16 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         for dir_data in dir_output_lists:
             # tra_inputs = Process_data(dir_data, batch_size)
             # 加载已保存的数据
-            tra_inputs = pickle.load(open(dir_data, 'rb'))
+            try:
+                logging.info('load data from %s'%dir_data)
+                tra_inputs = pickle.load(open(dir_data, 'rb'))
+                logging.info('load data from %s success'%dir_data)
+            except Exception as e:
+                logging.error('load data from %s failed'%dir_data)
+                logging.error(e)
+                raise e
+
+
             for batch, batch_inputs in enumerate(tra_inputs):
                 batch_inputs = to_cuda(batch_inputs)
                 optimizer.zero_grad()

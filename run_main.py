@@ -180,6 +180,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         for dir_data in dir_output_lists:
             # tra_inputs = Process_data(dir_data, batch_size)
             # 加载已保存的数据
+            torch.cuda.empty_cache()
             try:
                 logging.info('load data from %s'%dir_data)
                 tra_inputs = pickle.load(open(dir_data, 'rb'))

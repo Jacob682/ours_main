@@ -180,7 +180,6 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         for dir_data in dir_output_lists:
             # tra_inputs = Process_data(dir_data, batch_size)
             # 加载已保存的数据
-            torch.cuda.empty_cache()
             try:
                 logging.info('load data from %s'%dir_data)
                 tra_inputs = pickle.load(open(dir_data, 'rb'))
@@ -289,8 +288,8 @@ def main_nyc():
                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes.pkl'] # 做成列表为了共用fun_save_data
 
-    dir_output_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_40_prepared.pkl',\
-                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_40_prepared.pkl']
+    dir_output_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_40_prepared.pkl',\
+                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_40_prepared.pkl']
     dir_output_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes_40_prepared.pkl']
     num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
@@ -305,7 +304,7 @@ def main_nyc():
     stgn_embs = [256, 128, 150, 120, 12, 16, 32] # (hidden,user,poi,cat,month/hour,hsh5)
     pref_mlp_units = [512, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
-    num_x = [1078, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
+    num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
 
     run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
                     pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_output_lists, dir_input_tst, dir_output_tst, len_tra, len_tes, num_negs, num_head, num_rec)

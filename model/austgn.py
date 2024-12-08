@@ -77,6 +77,7 @@ class AUSTGN(nn.Module):
         '''
 
         # 将张量做成PackedSequence类，放入模型中。模型中得到每个batch的时间步
+        
         keys_length = keys_length.squeeze(-1).to(torch.int64).cpu()
         input_packed = pack_padded_sequence(input, keys_length, batch_first=True, enforce_sorted=False)
         q_packed= pack_padded_sequence(x_q, keys_length, batch_first=True, enforce_sorted=False)

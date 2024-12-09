@@ -69,7 +69,7 @@ class Preference_Stgn(nn.Module):
         # model_out=self.mlp(concat_out)#(bs,21)
         
         #最后加一层att
-        attn_day,attn_hour,queries=pref_out[0],pref_out[1],pref_out[2],pref_out[3]
+        attn_day,attn_hour,queries=pref_out[0],pref_out[1],pref_out[2]
         # stgn_dense=self.seq_dense_attn(seq_out.unsqueeze(1).expand(-1,num_neg,-1))#(pref_hidden),linear dense
         stgn_dense_cat=self.seq_dense_attn(seq_cat_out.unsqueeze(1).expand(-1,num_neg,-1))
         stgn_dense_loc=self.seq_dense_attn(seq_loc_out.unsqueeze(1).expand(-1,num_neg,-1))

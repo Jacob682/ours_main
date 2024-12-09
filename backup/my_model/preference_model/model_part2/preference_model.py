@@ -16,9 +16,9 @@ class BahdanauAttention(nn.Module):
         self.dropout=nn.Dropout(dropout)
     def forward(self,queries,keys,cum_subs_masks,num_neg):
         '''
-        queries:(bs,sq,21,embs)
-        keys:(bs,sq,7,hidden_size)
-        values(bs,sq,7,embs),即keys
+        queries:(bs,neg_num,embs)
+        keys:(bs,neg_num,hidden_size)
+        values(bs,neg_num,embs),即keys
         cum_subs_masks:(bs,sq,7,1)，某时间步在星期x没有打卡则取1
         return:
                 attn_out：每个q对k的分数(bs,sq,21,hidden_size)
@@ -27,11 +27,11 @@ class BahdanauAttention(nn.Module):
         with autocast():
             queries,keys=self.dropout(queries),self.dropout(keys)
             
-            scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#(bs,sq,21,1,hidden)+(bs,sq,21,7,hidden)=(bs,sq,21,7,hidden)->tanh之后不变，->(bs,sq,21,7,1)
+            scores=self.wv(F.tanh(self.wq(queries)+self.wk(keys)))#(bs,neg_num,hidden)+(bs,neg_num, hidden)=(bs,neg_num,hidden)->tanh之后不变，->(bs,neg_num,1)
             if cum_subs_masks is not None:#如果某时间步在某星期没有打卡，则在scores（注意力分数）加一个很大的负偏执，使得在softmax取值趋向0，抑制对这个元素的关注
                 scores+=(cum_subs_masks*-1e9)
-            attn_weights=F.softmax (scores,dim=-1)#score(bs,neg_num,hidden)
-            attn_out=attn_weights*keys#((bs,neg_num,hidden)*(bs,neg_num,hidden)
+            attn_weights=F.softmax (scores,dim=1)#score(bs,neg_num,1)
+            attn_out=attn_weights*keys#((bs,neg_num,1)*(bs,neg_num,hidden)->(bs,neg_num,hidden)
         return attn_out,attn_weights
 
 class BahdanauAttention_softmax(nn.Module):

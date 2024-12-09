@@ -70,13 +70,13 @@ class Preference_Stgn(nn.Module):
         # model_out=self.mlp(concat_out)#(bs,21)
         
         #最后加一层att
-        attn_day,attn_hour,queries=pref_out[0],pref_out[1],pref_out[2]
+        attn_day,attn_hour,queries=pref_out[0],pref_out[1],pref_out[2] # queries:(bs,neg_num,hidden);attn_day:(bs,neg_num,hidden)
         # stgn_dense=self.seq_dense_attn(seq_out.unsqueeze(1).expand(-1,num_neg,-1))#(pref_hidden),linear dense
         stgn_dense_cat=self.seq_dense_attn(seq_cat_out.unsqueeze(1).expand(-1,num_neg,-1))
         stgn_dense_loc=self.seq_dense_attn(seq_loc_out.unsqueeze(1).expand(-1,num_neg,-1))
 
             #att
-        day_attn_out,_=self.hiera_attn(queries,attn_day,None,num_neg)
+        day_attn_out,_=self.hiera_attn(queries,attn_day,None,num_neg) #day_attn_out:(bs,neg_num,hidden),
         hour_attn_out,_=self.hiera_attn(queries,attn_hour,None,num_neg)
         # hsh5_attn_out,_=self.hiera_attn(queries,attn_hsh5,None,num_neg)
         stgn_cat_attn_out,_=self.hiera_attn(queries,stgn_dense_cat,None,num_neg)

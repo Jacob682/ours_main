@@ -224,7 +224,6 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 scaler.update()
                 train_epoch_loss = train_epoch_loss + b_avg_loss
 
-                # torch.cuda.empty_cache()
                 
                 
                 # 计算评价指标
@@ -302,7 +301,7 @@ def main_nyc():
     weight_decay = 0
     pref_embs = [256, 64, 32, 8, 16, 32]
     stgn_embs = [256, 128, 150, 120, 12, 16, 32] # (hidden,user,poi,cat,month/hour,hsh5)
-    pref_mlp_units = [512, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
+    pref_mlp_units = [512, 128, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
     num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
 

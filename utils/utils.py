@@ -67,17 +67,17 @@ def mrr(prob,y,k):
     mrrk=torch.sum(rranks)/y_index.numel()
     return mrrk
 
-def accuracy(indices,batch_y,k,count=0,delta_dist=0):
+def accuracy(indices, batch_y, k, count=0, delta_dist=0):
     '''
     计算一个batch内一个窗口的accuracy
-    indices:(batch_size,poi_size)
+    indices:(batch_size,poi_size), 已排序
     batch_y:(batch_size),对indices的ground truth
     count:训练/测试集中用户数量
     delta_dist:无用
     return:一个batch中命中的总量
     '''
     hit=0
-    for i in range(indices.size(0)):#一个用户
+    for i in range(indices.size(0)):# 一个用户
         sort=indices[i]
         if batch_y[i].long() in sort[:k]:
             hit = hit + 1
@@ -206,4 +206,39 @@ class MLP_LN(nn.Module):
         x = self.layernorm2(x)
         y = self.dense_score(x)
         # y = self.acti1(y)#(bs,sq,1) 匹配BCEWithLogitsLoss
+        return y
+    
+class MLP_LN_SIGMOID(nn.Module):
+    def __init__(self,mlp_units, mlp_size, acti=torch.relu, rate=0.1):
+        super().__init__()
+        '''
+        mlp_units:list,由x映射到到mlp_units[0]->mlp_units[1]->mlp_units[2]
+        mlp_size:int,输入维度
+        '''
+        self.dropout=nn.Dropout(rate)
+        
+        self.layernorm0 = nn.LayerNorm(mlp_size, eps=1e-6)
+        self.layernorm1 = nn.LayerNorm(mlp_units[0], eps=1e-6)
+        self.layernorm2 = nn.LayerNorm(mlp_units[1], eps=1e-6)
+
+        self.dense1 = nn.Linear(mlp_size,mlp_units[0])
+        self.dense2 = nn.Linear(mlp_units[0],mlp_units[1])        
+        self.dense_score = nn.Linear(mlp_units[1],mlp_units[2])
+        self.acti0 = acti
+        self.acti1 = torch.sigmoid
+    def forward(self,x):
+        '''
+        x:[bs,sq,hidden_size+embs_size]#x是attn concat queries结果，attn之前对keys做了dense
+        '''
+        x = self.layernorm0(x)
+        x = self.dropout(x)
+        x = self.acti0(self.dense1(x))
+        
+        x = self.layernorm1(x)
+        x = self.dropout(x)
+        x = self.acti0(self.dense2(x))
+        
+        x = self.layernorm2(x)
+        y = self.dense_score(x)
+        y = self.acti1(y)#(bs,sq,1)
         return y

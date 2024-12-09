@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.cuda.amp import autocast
-from utils.utils import MLP_BN
+from utils.utils import MLP_LN_SIGMOID
 
 
 class BahdanauAttention_softmax(nn.Module):
@@ -49,9 +49,9 @@ class Preference_Model(nn.Module):
         mlp_size = query_size
         self_attn_key_size = mlp_units[-1] # key经过mlp层最后得到的维度
 
-        self.dense_day = MLP_BN(mlp_units, 7, mlp_size)
-        self.dense_hour = MLP_BN(mlp_units, 24, mlp_size)
-        self.dense_geo = MLP_BN(mlp_units, 95, mlp_size)
+        self.dense_day = MLP_LN_SIGMOID(mlp_units, mlp_size)
+        self.dense_hour = MLP_LN_SIGMOID(mlp_units, mlp_size)
+        self.dense_geo = MLP_LN_SIGMOID(mlp_units, mlp_size)
         self.attn = BahdanauAttention_softmax(mlp_units[-1], query_size, hidden_size)
         self.multihead_attn_day = nn.MultiheadAttention(self_attn_key_size, num_head, batch_first=True, add_bias_kv=True)
         self.multihead_attn_hour = nn.MultiheadAttention(self_attn_key_size, num_head, batch_first=True, add_bias_kv=True)

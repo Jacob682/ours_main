@@ -41,7 +41,7 @@ class Pref_Austgn(nn.Module):
         self.preference_model = Preference_Model(pref_embs, num_x, num_layers, num_head, mlp_units[0])
         self.sequential_model = Sequential_Model(stgn_embs, num_x, mlp_units[1], num_rec) 
     
-        self.itst_mlp_bn = MLP_BN4d(mlp_units[0], 4, self.hidden_size)
+        # self.itst_mlp_bn = MLP_BN4d(mlp_units[0], 4, self.hidden_size)
         self.inner_attn = BahdanauAttention_softmax(mlp_units[0][-1], self.query_size, self.hidden_size)
         self.out_mlp = MLP_LN(mlp_units[1], mlp_units[0][-1])
 
@@ -62,9 +62,9 @@ class Pref_Austgn(nn.Module):
 
         # inner attn
         inner_keys = torch.stack([pref_day, pref_hour, seq_poi, seq_cat], dim = 2)# (batch_size, neg_num+1, key_num, embs)
-        inner_keys_bn = self.itst_mlp_bn(inner_keys) #(batch_size, neg_num, key_nums, embs)
+        # inner_keys_bn = self.itst_mlp_bn(inner_keys) #(batch_size, neg_num, key_nums, embs)
 
-        inner_attn_out, _ = self.inner_attn(queries, inner_keys_bn, None, num_neg) # q(batch_size, num_neg, embs);key(batch_size, key_num, embs);out(batch_size, neg_num, key_size)
+        inner_attn_out, _ = self.inner_attn(queries, inner_keys, None, num_neg) # q(batch_size, num_neg, embs);key(batch_size, key_num, embs);out(batch_size, neg_num, key_size)
 
         model_out = self.out_mlp(inner_attn_out) #(batch_size, neg_num, 1)
         

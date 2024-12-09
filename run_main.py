@@ -144,20 +144,12 @@ def Process_data(dir_data, batch_size):
     pref_austgn_dataloader = DataLoader(pref_austgn_dataset, batch_size, shuffle=True)
     return pref_austgn_dataloader
 
-def fun_save_data(dir_data, batch_size, outputfile):
-    if os.path.exists(outputfile[-1]):
-        return
-    else:
-        for dir_data, dir_output in zip(dir_data, outputfile):
-            tra_inputs = Process_data(dir_data, batch_size)
-            with open(dir_output, 'wb') as f:
-                pickle.dump(tra_inputs, f)
-    return 
+
 
 
 @exe_time
 def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
-                    pref_embs, stgn_embs, mlp_units, dir_inputs_lists, dir_output_lists, dir_input_tst, dir_output_tst, len_tra, len_tes, num_neg, num_head, num_rec):
+                    pref_embs, stgn_embs, mlp_units, dir_inputs_lists, dir_input_tst, len_tra, len_tes, num_neg, num_head, num_rec):
     
     model = Pref_Austgn(num_x, pref_embs, stgn_embs, mlp_units, num_layers, num_head, num_rec)
     model = model.cuda()
@@ -167,8 +159,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     scaler = GradScaler()
     
     # 在训练之前加载数据，避免每个epoch都花费2min生成数据,只执行一次
-    # 调用封装的prepare_data函数
-    fun_save_data(dir_inputs_lists, batch_size, dir_output_lists) # 不需要返回，保存到文件
+
     
     for epoch in range(num_epoch):
         train_start = datetime.now()
@@ -177,18 +168,8 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         train_epoch_loss = 0.0
         tra_acc_1, tra_acc_5 = 0, 0
         mrr = 0
-        for dir_data in dir_output_lists:
-            # tra_inputs = Process_data(dir_data, batch_size)
-            # 加载已保存的数据
-            try:
-                logging.info('load data from %s'%dir_data)
-                tra_inputs = pickle.load(open(dir_data, 'rb'))
-                logging.info('load data from %s success'%dir_data)
-            except Exception as e:
-                logging.error('load data from %s failed'%dir_data)
-                logging.error(e)
-                raise e
-
+        for dir_data in dir_inputs_lists:
+            tra_inputs = Process_data(dir_data, batch_size)
 
             for batch, batch_inputs in enumerate(tra_inputs):
                 batch_inputs = to_cuda(batch_inputs)
@@ -239,9 +220,6 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
               'acc@1:{:.4f}\t'.format(tra_acc_1/len_tra),
               'acc@5:{:.4f}\t'.format(tra_acc_5/len_tra),)
         
-        # 在test之前，存test数据
-        fun_save_data(dir_input_tst, batch_size, dir_output_tst)
-        tst_inputs = pickle.load(open(dir_output_tst[0], 'rb'))
 
         # if epoch % 1 == 0:
         #     with torch.no_grad():
@@ -287,9 +265,6 @@ def main_nyc():
                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes.pkl'] # 做成列表为了共用fun_save_data
 
-    dir_output_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1_40_prepared.pkl',\
-                        '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0_40_prepared.pkl']
-    dir_output_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes_40_prepared.pkl']
     num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
     batch_size, num_epoch = 40, 100
@@ -306,6 +281,6 @@ def main_nyc():
     num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
 
     run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
-                    pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_output_lists, dir_input_tst, dir_output_tst, len_tra, len_tes, num_negs, num_head, num_rec)
+                    pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_input_tst, len_tra, len_tes, num_negs, num_head, num_rec)
 if __name__ =='__main__':
      main_nyc()

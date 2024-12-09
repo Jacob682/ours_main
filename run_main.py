@@ -244,43 +244,43 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         fun_save_data(dir_input_tst, batch_size, dir_output_tst)
         tst_inputs = pickle.load(open(dir_output_tst[0], 'rb'))
 
-        if epoch % 1 == 0:
-            with torch.no_grad():
-                model.eval()
-                test_epoch_loss = 0.0
-                acc_1, acc_5, acc_10, acc_15 = 0, 0, 0, 0
-                mrr = 0
+        # if epoch % 1 == 0:
+        #     with torch.no_grad():
+        #         model.eval()
+        #         test_epoch_loss = 0.0
+        #         acc_1, acc_5, acc_10, acc_15 = 0, 0, 0, 0
+        #         mrr = 0
 
-                for batch_step, batch_inputs in enumerate(tst_inputs):
-                    batch_inputs = to_cuda(batch_inputs)
-                    austgn_inputs = batch_inputs[:14]
-                    pref_inputs = batch_inputs[14:22]
-                    y_inputs = batch_inputs[22:27]
-                    neg_inputs = batch_inputs[27:]
-                    model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
-                    with autocast():
-                        outputs, shuffle_indices = model(model_inputs, num_neg[1])
-                        outputs = torch.squeeze(outputs, dim=-1)
-                        _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
-                        pos_position = (shuffle_indices == 0)
-                        y_shuffle = torch.zeros_like(shuffle_indices)
-                        y_shuffle[pos_position] = 1
-                        y_shuffle[~pos_position] = 0
-                        b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
-                    test_epoch_loss = test_epoch_loss + b_avg_loss
-                    y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
-                    acc_1 = acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
-                    acc_5 = acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
-                    acc_10 = acc_10 + accuracy(sorted_indice, y_shuffle_1d, 10)
-                    acc_15 = acc_15 + accuracy(sorted_indice, y_shuffle_1d, 15)
+        #         for batch_step, batch_inputs in enumerate(tst_inputs):
+        #             batch_inputs = to_cuda(batch_inputs)
+        #             austgn_inputs = batch_inputs[:14]
+        #             pref_inputs = batch_inputs[14:22]
+        #             y_inputs = batch_inputs[22:27]
+        #             neg_inputs = batch_inputs[27:]
+        #             model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
+        #             with autocast():
+        #                 outputs, shuffle_indices = model(model_inputs, num_neg[1])
+        #                 outputs = torch.squeeze(outputs, dim=-1)
+        #                 _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
+        #                 pos_position = (shuffle_indices == 0)
+        #                 y_shuffle = torch.zeros_like(shuffle_indices)
+        #                 y_shuffle[pos_position] = 1
+        #                 y_shuffle[~pos_position] = 0
+        #                 b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
+        #             test_epoch_loss = test_epoch_loss + b_avg_loss
+        #             y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
+        #             acc_1 = acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
+        #             acc_5 = acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
+        #             acc_10 = acc_10 + accuracy(sorted_indice, y_shuffle_1d, 10)
+        #             acc_15 = acc_15 + accuracy(sorted_indice, y_shuffle_1d, 15)
 
-                print('tst:',
-                  'epoch:[{}/{}]\t'.format(epoch, num_epoch),
-                  'tst_loss:{:.4f}\t'.format(test_epoch_loss),
-                  'acc@1:{:.4f}\t'.format(acc_1/len_tes),
-                  'acc@5:{:.4f}\t'.format(acc_5/len_tes),
-                  'acc@10:{:.4f}\t'.format(acc_10/len_tes)
-                )
+        #         print('tst:',
+        #           'epoch:[{}/{}]\t'.format(epoch, num_epoch),
+        #           'tst_loss:{:.4f}\t'.format(test_epoch_loss),
+        #           'acc@1:{:.4f}\t'.format(acc_1/len_tes),
+        #           'acc@5:{:.4f}\t'.format(acc_5/len_tes),
+        #           'acc@10:{:.4f}\t'.format(acc_10/len_tes)
+        #         )
             
 @exe_time
 def main_nyc():

@@ -77,7 +77,6 @@ class AUSTGN(nn.Module):
         '''
 
         # 将张量做成PackedSequence类，放入模型中。模型中得到每个batch的时间步
-        
         keys_length = keys_length.squeeze(-1).to(torch.int64).cpu()
         input_packed = pack_padded_sequence(input, keys_length, batch_first=True, enforce_sorted=False)
         q_packed= pack_padded_sequence(x_q, keys_length, batch_first=True, enforce_sorted=False)
@@ -87,27 +86,33 @@ class AUSTGN(nn.Module):
         batch_size, seq_len = input_unpacked.size(0), input_unpacked.size(1)
         
         
-        hidden_seq = [] # 保存最后的ht
-        hidden_seq_attn = [] # 暂存一个batch所有时间步的ht，避免转化形状
+        # hidden_seq = [] # 保存最后的ht,用于最后输出
+        # hidden_seq_attn = [] # 暂存一个batch所有时间步的ht，避免转化形状,用于计算attn
+        hidden_seq_attn = torch.zeros(batch_size, seq_len, self.hidden_sz, device=input.device) # 用于最后输出
+        past_h = torch.zeros(batch_size, self.hidden_sz, device=input.device) # 用于计算attn的h_t
+
+        # 提取delta_t和delta_d, 减少后续提取的时间
+        delta_t = input_unpacked[:,:,0].unsqueeze(-1) # (batch_size, seq_len, 1)
+        delta_d = input_unpacked[:,:,1].unsqueeze(-1) # (batch_size, seq_len, 1)
+        x_fea = input_unpacked[:,:,2:] # (batch_size, seq_len, embs)
+
         if init_state is None: # 初始化最初状态
             h_t, c_t= (
-                torch.zeros(batch_size, self.hidden_sz).cuda(), # h_t只包含当前时间步的
-                torch.zeros(batch_size, self.hidden_sz).cuda()
+                torch.zeros(batch_size, self.hidden_sz, device=input.device), # h_t只包含当前时间步的
+                torch.zeros(batch_size, self.hidden_sz, device=input.device)
             )
         else:
             h_t, c_t = init_state
 
         for t in range(seq_len): # 迭代每个时间步
             
-            mask = (lengths > t).long() # 取当前有效的样本 （batch_size)
-            valid_indices = torch.nonzero(mask).squeeze(1) # 取有效索引 (batch_size)
-            if valid_indices.numel() == 0:
+            mask = (lengths > t).long() # 取当前有效的样本 （batch_size), 1有效，0无效
+            if not mask.any(): # 如果没有有效的样本，直接跳过
                 break
-
-            #取数据
-            Tt = input_unpacked[valid_indices, t, 0].unsqueeze(1) #(batch_size, 1)
-            Dt = input_unpacked[valid_indices, t, 1].unsqueeze(1)
-            xt = input_unpacked[valid_indices, t, 2:] # (batch_size, embs)
+            valid_indices = mask.nonzero().squeeze() #(batch_size) 返回非0的索引,由于样本被打乱，并不知道哪些位置有效
+            Tt = delta_t[valid_indices, t, :].unsqueeze(1) #(batch_size, 1)
+            Dt = delta_d[valid_indices, t, :].unsqueeze(1)
+            xt = x_fea[valid_indices, t, :] # (batch_size, embs)
             qt = q_unpacked[valid_indices, t, :] #(batch_size, embs)
 
             
@@ -117,11 +122,9 @@ class AUSTGN(nn.Module):
             if t == 0: #第一个时间步
                 at = 1
             else:
-                hidden_seq_tensor = torch.stack(hidden_seq_attn, dim = 1) #(batch_size, seq_len,embs)
-                hidden_seq_t = hidden_seq_tensor[valid_indices, :t, :] # hidden_seq(batch_size, seq_len, hidden_size)
-                
+                past_h_valid = past_h[valid_indices, :t, :] #(batch_size, seq_len,embs)
                 qt = self.linear_a(qt.unsqueeze(1)) # (batch_size, q_num, hidden)
-                at, _ = self.attn(qt, hidden_seq_t, hidden_seq_t) # (attn_score, attn_weight) | (batch_size, targe_num, embs)
+                at, _ = self.attn(qt, past_h_valid, past_h_valid) # 输出(attn_score, attn_weight) | (batch_size, targe_num, embs), 此时的target只有一个
                 at = at.squeeze(1) # (batch_size, embs)
             
             it = torch.sigmoid(xt @ self.Wxi + h_t[valid_indices] @ self.Whi + self.bi)

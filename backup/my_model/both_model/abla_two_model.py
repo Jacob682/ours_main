@@ -132,7 +132,7 @@ class Abl_Two_Model(nn.Module):
         x_day=self.embed_days_long(pref_inputs[2])
         x_hour=self.embed_slots_long(pref_inputs[3])
         x_hs5=self.embed_geohshs_long(pref_inputs[4])
-        print("poi维度：", pref_inputs[0].shape)
+        # print("poi维度：", pref_inputs[0].shape)
         # print("cat维度：", pref_inputs[1].shape)
         # print("day维度：", pref_inputs[2].shape)
         # print("hour维度：", input[3].shape)

@@ -199,10 +199,10 @@ class Abl_Two_Model(nn.Module):
         # cum_subs_mask_hour=cum_subs_mask_hour[:,-1:,:].squeeze(1) # 取最后一个时间步，在函数中返回(bs, 7, 1)
         cum_subs_mask_hour=cum_subs_mask_hour.unsqueeze(1).expand(-1,num_neg,-1,-1)
             #zoom pooling
-        cum_subs_avg_hsh,cum_subs_mask_hsh=self.fun_avg_pooling(inputs_embs,pref_inputs[7])
+        # cum_subs_avg_hsh,cum_subs_mask_hsh=self.fun_avg_pooling(inputs_embs,pref_inputs[7])
         # cum_subs_avg_hsh=cum_subs_avg_hsh[:,-1,:,:].squeeze(1) 
         # cum_subs_mask_hsh=cum_subs_mask_hsh[:,-1:,:].squeeze(1)
-        cum_subs_mask_hsh=cum_subs_mask_hsh.unsqueeze(1).expand(-1,num_neg,-1,-1)
+        # cum_subs_mask_hsh=cum_subs_mask_hsh.unsqueeze(1).expand(-1,num_neg,-1,-1)
 
         #pooling->fc
             #day
@@ -212,7 +212,7 @@ class Abl_Two_Model(nn.Module):
             #hour
         cum_subs_avg_hour=self.dense(cum_subs_avg_hour)
             #zoom
-        cum_subs_avg_hsh=self.dense(cum_subs_avg_hsh)
+        # cum_subs_avg_hsh=self.dense(cum_subs_avg_hsh)
         
 
 
@@ -229,8 +229,8 @@ class Abl_Two_Model(nn.Module):
         keys_hour=cum_subs_avg_hour
         attn_out_hour,_=self.attn(queries,keys_hour,cum_subs_mask_hour,num_neg) # 3g
             #hsh
-        keys_hsh=cum_subs_avg_hsh
-        attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg) # 10g
+        # keys_hsh=cum_subs_avg_hsh
+        # attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg) # 10g
         
 
         #month-pooling concat
@@ -238,7 +238,8 @@ class Abl_Two_Model(nn.Module):
         # return concat,shuffled_indices,shuffled_neg_seconds
         
         #hiera_attn
-        pref_out=attn_out,attn_out_hour,attn_out_hsh,queries
+        # pref_out=attn_out,attn_out_hour,attn_out_hsh,queries
+        pref_out=attn_out,attn_out_hour,queries
 
 
         ########################################stgn

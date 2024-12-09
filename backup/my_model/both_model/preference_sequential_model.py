@@ -69,7 +69,7 @@ class Preference_Stgn(nn.Module):
         # model_out=self.mlp(concat_out)#(bs,21)
         
         #最后加一层att
-        attn_day,attn_hour,attn_hsh5,queries=pref_out[0],pref_out[1],pref_out[2],pref_out[3]
+        attn_day,attn_hour,queries=pref_out[0],pref_out[1],pref_out[2],pref_out[3]
         # stgn_dense=self.seq_dense_attn(seq_out.unsqueeze(1).expand(-1,num_neg,-1))#(pref_hidden),linear dense
         stgn_dense_cat=self.seq_dense_attn(seq_cat_out.unsqueeze(1).expand(-1,num_neg,-1))
         stgn_dense_loc=self.seq_dense_attn(seq_loc_out.unsqueeze(1).expand(-1,num_neg,-1))
@@ -77,11 +77,11 @@ class Preference_Stgn(nn.Module):
             #att
         day_attn_out,_=self.hiera_attn(queries,attn_day,None,num_neg)
         hour_attn_out,_=self.hiera_attn(queries,attn_hour,None,num_neg)
-        hsh5_attn_out,_=self.hiera_attn(queries,attn_hsh5,None,num_neg)
+        # hsh5_attn_out,_=self.hiera_attn(queries,attn_hsh5,None,num_neg)
         stgn_cat_attn_out,_=self.hiera_attn(queries,stgn_dense_cat,None,num_neg)
         stgn_loc_attn_out,_=self.hiera_attn(queries,stgn_dense_loc,None,num_neg)
             #concat
-        concat_out=torch.cat((queries,day_attn_out,hour_attn_out,hsh5_attn_out,stgn_cat_attn_out,stgn_loc_attn_out),dim=-1)#(pref_hidden_size*3+sum(pref_embs[1:]))
+        concat_out=torch.cat((queries,day_attn_out,hour_attn_out,stgn_cat_attn_out,stgn_loc_attn_out),dim=-1)#(pref_hidden_size*3+sum(pref_embs[1:]))
         model_out=self.mlp(concat_out)
 
         

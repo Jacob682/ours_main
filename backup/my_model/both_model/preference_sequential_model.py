@@ -27,7 +27,8 @@ class Preference_Stgn(nn.Module):
         
         tar_attn_dropout,hiera_attn_dropout,mlp_dropout=drop_out
         queries_emb_size=sum(pref_embs[1:])+sum(stgn_embs[2:])+pref_embs[3]
-        mlp_size=pref_embs[0]*4+sum(pref_embs)+sum(stgn_embs[2:])+pref_embs[3]
+        # mlp_size=pref_embs[0]*4+sum(pref_embs)+sum(stgn_embs[2:])+pref_embs[3]
+        mlp_size = 893
         # mlp_size=sum(pref_embs)+stgn_embs[0]+pref_embs[0]#mlp输入的维度，两个模型的hidden+query的embs.pref有两个hidden pref_embs[0]加两次，query在sum中加了,concat
         # self.preference_model=Preference_Model(pref_embs,num_x,num_layers,head_num,tar_attn_dropout)
         seq_num_x=num_x[:3]+[num_x[6]]+[num_x[3]]#(num_ueser,num_poi,num_cat,num_hour,num_hsh)

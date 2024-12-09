@@ -89,7 +89,7 @@ class AUSTGN(nn.Module):
         # hidden_seq = [] # 保存最后的ht,用于最后输出
         # hidden_seq_attn = [] # 暂存一个batch所有时间步的ht，避免转化形状,用于计算attn
         hidden_seq_attn = torch.zeros(batch_size, seq_len, self.hidden_sz, device=input.device) # 用于最后输出
-        past_h = torch.zeros(batch_size, self.hidden_sz, device=input.device) # 用于计算attn的h_t
+        past_h = torch.zeros(batch_size, self.hidden_sz, self.hidden_sz, device=input.device) # 用于计算attn的h_t
 
         # 提取delta_t和delta_d, 减少后续提取的时间
         delta_t = input_unpacked[:,:,0].unsqueeze(-1) # (batch_size, seq_len, 1)
@@ -110,8 +110,8 @@ class AUSTGN(nn.Module):
             if not mask.any(): # 如果没有有效的样本，直接跳过
                 break
             valid_indices = mask.nonzero().squeeze() #(batch_size) 返回非0的索引,由于样本被打乱，并不知道哪些位置有效
-            Tt = delta_t[valid_indices, t, :].unsqueeze(1) #(batch_size, 1)
-            Dt = delta_d[valid_indices, t, :].unsqueeze(1)
+            Tt = delta_t[valid_indices, t, :] #(batch_size, 1)
+            Dt = delta_d[valid_indices, t, :]
             xt = x_fea[valid_indices, t, :] # (batch_size, embs)
             qt = q_unpacked[valid_indices, t, :] #(batch_size, embs)
 
@@ -127,21 +127,27 @@ class AUSTGN(nn.Module):
                 at, _ = self.attn(qt, past_h_valid, past_h_valid) # 输出(attn_score, attn_weight) | (batch_size, targe_num, embs), 此时的target只有一个
                 at = at.squeeze(1) # (batch_size, embs)
             
-            it = torch.sigmoid(xt @ self.Wxi + h_t[valid_indices] @ self.Whi + self.bi)
-            ft = torch.sigmoid(xt @ self.Wxf + h_t[valid_indices] @ self.Whf + self.bf)
-            j = torch.tanh(xt @ self.Wxc + h_t[valid_indices] @ self.Whc + self.bc)
-            T1t = torch.sigmoid(xt @ self.Wxt1 + torch.sigmoid(Tt @ self.Wt1) + self.bt1)
+            it = torch.sigmoid(xt @ self.Wxi + h_t[valid_indices] @ self.Whi + self.bi) # (batch_size, embs)
+            ft = torch.sigmoid(xt @ self.Wxf + h_t[valid_indices] @ self.Whf + self.bf) # (batch_size, embs)
+            c_tilde = torch.tanh(xt @ self.Wxc + h_t[valid_indices] @ self.Whc + self.bc) #(batch_size, embs)
+            ot = torch.sigmoid(xt @ self.Wxo + h_t[valid_indices] @ self.Who + Tt @ self.Wto + Dt @ self.Wdo + self.bo)
+
+            i_prime_t = it * at # (batch_size, embs)
+            f_prime_t = ft * at
+
+            T1t = torch.sigmoid(xt @ self.Wxt1 + torch.sigmoid(Tt @ self.Wt1) + self.bt1) # (batch_size, embs)
             T2t = torch.sigmoid(xt @ self.Wxt2 + torch.sigmoid(Tt @ self.Wt2) + self.bt2)
             D1t = torch.sigmoid(xt @ self.Wxd1 + torch.sigmoid(Dt @ self.Wd1) + self.bd1)
             D2t = torch.sigmoid(xt @ self.Wxd2 + torch.sigmoid(Dt @ self.Wd2) + self.bd2)
-            c_hat = ft * c_t[valid_indices] + it * T1t * D1t * j
-            c_t[valid_indices] = ft * c_t[valid_indices] + it * T2t * D2t * j
-            ot_hat = torch.sigmoid(xt @ self.Wxo + h_t[valid_indices] @ self.Who + Tt @ self.Wto + Dt @ self.Wdo + self.bo)
-            ot = at * ot_hat
-            h_t[valid_indices] = ot * torch.tanh(c_hat) #(batch_size, embs)
+
+            c_hat = f_prime_t * c_t[valid_indices] + i_prime_t * T1t * D1t * c_tilde # (batch_size, embs)
+            c_t[valid_indices] = f_prime_t * c_t[valid_indices] + i_prime_t * T2t * D2t * c_tilde # (batch_size, embs)
             
-            hidden_seq_attn.append(h_t) #(seq, batch_size, embs)
-            hidden_seq.append(h_t.unsqueeze(0)) # 时间步的hidden (seq, batch_size, embs)
+            h_now = ot * torch.tanh(c_hat) # (batch_size, embs) 当前batch的h_t
+            h_t[valid_indices] = h_now # 当前有效时间步的h_t
+            
+            hidden_seq_attn[valid_indices, t, :] = h_now # 用于输出的隐藏状态 (batch_size, seq_len, embs)
+            past_h[valid_indices, t, :] = h_now # 所有时间步，用于计算attn的隐藏状态
             
             # 计算一个batch内某个时间步的aux loss
             '''
@@ -151,10 +157,7 @@ class AUSTGN(nn.Module):
                 2.1要全部把hidden都穿出来，然后做
                 不对，因为序列是网络内部的，所以应该在内部做
             '''
-            
-        hidden_seq = torch.cat(hidden_seq, dim=0) # batch的hidden (seq, bs, embs)
-        hidden_seq = hidden_seq.transpose(0, 1).contiguous() 
-        return hidden_seq, (h_t, c_t) # h_t:(batch_size, embs)
+        return hidden_seq_attn, (h_t, c_t) # h_t:(batch_size, embs)
 
             
 

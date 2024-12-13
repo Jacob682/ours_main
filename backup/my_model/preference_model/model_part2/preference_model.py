@@ -241,7 +241,7 @@ class Preference_Model(nn.Module):
                                y_hour.unsqueeze(1).expand(-1,neg_num+1,-1),
                                y_hs5.unsqueeze(1).expand(-1,neg_num+1,-1)),dim=-1)#(b,21,embs)
         
-        #在pooling前加self-attn
+        # 在pooling前加self-attn
         # self_attn_out,_=self.multihead_attn(inputs_embs,inputs_embs,inputs_embs)#q,kv
 
         #pooling:每个时间步都pooling了

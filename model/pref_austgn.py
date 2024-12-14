@@ -31,7 +31,7 @@ class Pref_Austgn(nn.Module):
     def __init__(self, num_x, pref_embs, stgn_embs, mlp_units, num_layers, num_head, num_rec):
         '''
         mlp_units :
-            pref_mlp_units = [512, 128]
+            pref_mlp_units = [512, 128, 256]
             mlp_units = (pref_mlp_units, [1024, 512, 1])
         '''
         super().__init__()
@@ -42,9 +42,9 @@ class Pref_Austgn(nn.Module):
         self.sequential_model = Sequential_Model(stgn_embs, num_x, mlp_units[1], num_rec) 
     
         # self.itst_mlp_bn = MLP_BN4d(mlp_units[0], 4, self.hidden_size)
-        # self.inner_attn = BahdanauAttention_softmax(mlp_units[0][-1], self.query_size, self.hidden_size)
-        self.attn_day = BahdanauAttention_softmax(self.hidden_size, self.query_size, self.hidden_size)
-        self.out_mlp = MLP_LN(mlp_units[1], mlp_units[0][-1])
+        self.inner_attn = BahdanauAttention_softmax(mlp_units[0][-1], self.query_size, self.hidden_size)
+        # self.attn_day = BahdanauAttention_softmax(self.hidden_size, self.query_size, self.hidden_size)
+        self.out_mlp = MLP_LN(mlp_units[1], mlp_units[0][-1] + self.query_size)
 
     def forward(self, inputs, num_neg):
         '''
@@ -52,14 +52,21 @@ class Pref_Austgn(nn.Module):
         '''
         austgn_inputs, pref_inputs, y_inputs, neg_inputs = inputs
         pref_out, shuffled_indices = self.preference_model(pref_inputs, y_inputs, neg_inputs, num_neg)
-        seq_out = self.sequential_model(austgn_inputs)
+        # seq_out = self.sequential_model(austgn_inputs)
         
         pref_day, pref_hour, queries = pref_out # (batch_size, neg_num+1, embs),queries:(bs,neg_num,embs)
-        seq_poi, seq_cat = seq_out # (batch_size, embs)
+        # seq_poi, seq_cat = seq_out # (batch_size, embs)
 
         # 需要对齐neg_num，否则没法和pref_out stack
-        seq_poi = torch.unsqueeze(seq_poi, dim=1).expand(-1, num_neg+1, -1)
-        seq_cat = torch.unsqueeze(seq_cat, dim=1).expand(-1, num_neg+1, -1)
+        # seq_poi = torch.unsqueeze(seq_poi, dim=1).expand(-1, num_neg+1, -1)
+        # seq_cat = torch.unsqueeze(seq_cat, dim=1).expand(-1, num_neg+1, -1)
+
+
+        # only pref_out
+        inner_keys = torch.stack([pref_day, pref_hour], dim = 2)# (batch_size, neg_num+1, key_num=2, embs)
+        inner_attn_out, _ = self.inner_attn(queries, inner_keys, None, num_neg) # out(batch_size, neg_num, key_size)
+        inner_attn_out = torch.cat([queries, inner_attn_out], dim=-1) # (batch_size, neg_num, embs+key_size)
+        
 
         # inner attn
         # inner_keys = torch.stack([pref_day, pref_hour, seq_poi, seq_cat], dim = 2)# (batch_size, neg_num+1, key_num, embs)
@@ -67,7 +74,7 @@ class Pref_Austgn(nn.Module):
 
         # inner_attn_out, _ = self.inner_attn(queries, inner_keys, None, num_neg) # q(batch_size, num_neg, embs);key(batch_size, key_num, embs);out(batch_size, neg_num, key_size)
             # hiera_att
-        day_attn_out, _ = self.inner_attn(queries, pref_day, None, num_neg)
+        # day_attn_out, _ = self.inner_attn(queries, pref_day, None, num_neg)
         model_out = self.out_mlp(inner_attn_out) #(batch_size, neg_num, 1)
         
         return model_out, torch.stack(shuffled_indices) #返回indice张量

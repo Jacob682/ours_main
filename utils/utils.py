@@ -174,7 +174,7 @@ class MLP_BN4d(nn.Module):
 
 
 class MLP_LN(nn.Module):
-    def __init__(self,mlp_units, mlp_size, acti=torch.relu, rate=0.1):
+    def __init__(self, mlp_units, mlp_size, acti=torch.relu, rate=0.1):
         super().__init__()
         '''
         mlp_units:list,由x映射到到mlp_units[0]->mlp_units[1]->mlp_units[2]

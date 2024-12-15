@@ -255,10 +255,10 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             
 @exe_time
 def main_nyc():
-    # dir_input_lists = [
-    #                    '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl',\
-    #                    '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl']
-    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
+    dir_input_lists = [
+                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl',\
+                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl']
+    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg

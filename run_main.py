@@ -168,7 +168,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         mrr = 0
         for dir_data in dir_inputs_lists:
             tra_inputs = Process_data(dir_data, batch_size)
-
+            torch.cuda.empty_cache()
             for batch, batch_inputs in enumerate(tra_inputs):
                 batch_inputs = to_cuda(batch_inputs)
                 optimizer.zero_grad()
@@ -207,6 +207,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
                 tra_acc_1 = tra_acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
                 tra_acc_5 = tra_acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
+            torch.cuda.empty_cache()
         train_end = datetime.now()
         total = (train_end - train_start).total_seconds()
 
@@ -263,7 +264,7 @@ def main_nyc():
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
-    batch_size, num_epoch = 30, 100
+    batch_size, num_epoch = 20, 100
     delta = 1
     num_layers = 1
     num_head = 1

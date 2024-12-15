@@ -214,9 +214,9 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         print('--total:@ %.3fs==%.3fmin'%(total, total/60))
         print('tra:',
               'epoch:[{}/{}]\t'.format(epoch, num_epoch),
-              'loss:{:.4f}\t'.format(train_epoch_loss),
-              'acc@1:{:.4f}\t'.format(tra_acc_1/len_tra),
-              'acc@5:{:.4f}\t'.format(tra_acc_5/len_tra),)
+              'loss:{:.6f}\t'.format(train_epoch_loss),
+              'acc@1:{:.6f}\t'.format(tra_acc_1/len_tra),
+              'acc@5:{:.6f}\t'.format(tra_acc_5/len_tra),)
         
 
         # if epoch % 1 == 0:
@@ -269,11 +269,12 @@ def main_nyc():
     delta = 1
     num_layers = 1
     num_head = 1
+    dropout_overall = 0.1
     num_rec = 20
     lr = 0.0001
     weight_decay = 0
     pref_embs = [256, 64, 32, 8, 16, 32]
-    stgn_embs = [256, 128, 150, 120, 12, 16, 32] # (hidden,user,poi,cat,month/hour,hsh5)
+    stgn_embs = [256, 128, 128, 64, 8, 16, 32] # (hidden,user,poi,cat,month/hour,hsh5)
     pref_mlp_units = [512, 128, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
     num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个

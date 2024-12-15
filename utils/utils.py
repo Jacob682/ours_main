@@ -182,30 +182,30 @@ class MLP_LN(nn.Module):
         '''
         self.dropout=nn.Dropout(rate)
         
-        self.layernorm0 = nn.LayerNorm(mlp_size, eps=1e-6)
-        self.layernorm1 = nn.LayerNorm(mlp_units[0], eps=1e-6)
-        self.layernorm2 = nn.LayerNorm(mlp_units[1], eps=1e-6)
+        # self.layernorm0 = nn.LayerNorm(mlp_size, eps=1e-6)
+        self.layernorm0 = nn.LayerNorm(mlp_units[0], eps=1e-6)
+        self.layernorm1 = nn.LayerNorm(mlp_units[1], eps=1e-6)
 
         self.dense1 = nn.Linear(mlp_size,mlp_units[0])
         self.dense2 = nn.Linear(mlp_units[0],mlp_units[1])
         self.dense_score = nn.Linear(mlp_units[1],mlp_units[2])
         self.acti0 = acti
-        self.acti1 = torch.sigmoid
+        self.acti1 = F.sigmoid
     def forward(self,x):
         '''
         x:[bs,sq,hidden_size+embs_size]#x是attn concat queries结果，attn之前对keys做了dense
         '''
-        x = self.layernorm0(x)
         x = self.dropout(x)
         x = self.acti0(self.dense1(x))
+        x = self.layernorm0(x)
         
-        x = self.layernorm1(x)
         x = self.dropout(x)
         x = self.acti0(self.dense2(x))
+        x = self.layernorm1(x)
         
-        x = self.layernorm2(x)
         y = self.dense_score(x)
         y = self.acti1(y)#(bs,sq,1)
+        
         return y
     
 class MLP_LN_SIGMOID(nn.Module):

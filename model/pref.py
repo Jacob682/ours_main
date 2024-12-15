@@ -15,12 +15,13 @@ class BahdanauAttention_softmax(nn.Module):
         '''
         queries (batch_size, num_neg+1, embs)
         keys (batch_size, num_keys, embs)
+        cum_subs_masks (batch_size, num_neg+1, num_keys, 1)
         '''
         queries = queries.unsqueeze(-2) #(bs, num_neg, 1, embs)
         keys = keys.unsqueeze(1).expand(-1, num_neg+1, -1, -1)
         scores =self.wv(F.tanh(self.wq(queries) + self.wk(keys)))
         if cum_subs_masks is not None:
-            scores = scores + (cum_subs_masks*-1e9)
+            scores = scores + (cum_subs_masks*-1e9) 
         attn_weight = F.softmax(scores, dim=-2) #(bs, neg_num+1, key_num, 1)
         attn_out = attn_weight * keys # attn_out/keys:(bs, num_neg+1, key_num, key_size)
         attn_out = torch.sum(attn_out, dim=-2) #(bs, num_neg+1, key_size)
@@ -55,7 +56,7 @@ class Preference_Model(nn.Module):
         self.attn = BahdanauAttention_softmax(mlp_units[-1], query_size, hidden_size)
         self.multihead_attn_day = nn.MultiheadAttention(self_attn_key_size, num_head, batch_first=True, add_bias_kv=True)
         self.multihead_attn_hour = nn.MultiheadAttention(self_attn_key_size, num_head, batch_first=True, add_bias_kv=True)
-        self.multihead_attn_geo = nn.MultiheadAttention(self_attn_key_size, num_head, batch_first=True, add_bias_kv=True)
+        # self.multihead_attn_geo = nn.MultiheadAttention(self_attn_key_size, num_head, batch_first=True, add_bias_kv=True)
     def fun_avg_pooling(self,inputs_embs,subs_days_masks):
         '''
         根据样本打卡星期x，将样本划分进入不同类别和时间，并池化
@@ -88,7 +89,7 @@ class Preference_Model(nn.Module):
 
         cum_subs_avg=inputs_embs_expand_subs_cum_avg#pooling后的每周的打卡嵌入(bs,sq,7,embs)
         cum_subs_mask=cum_idx_mask#(bs,sl,7,1)某时间步在星期x没有打卡则取1
-        return cum_subs_avg[:,1,:,:].squeeze(1), cum_subs_mask[:,-1,:,:].squeeze(1)
+        return cum_subs_avg[:,-1,:,:].squeeze(1), cum_subs_mask[:,-1,:,:].squeeze(1)
         
     def forward(self, pref_inputs, y_inputs, neg_inputs, num_neg):
 
@@ -135,7 +136,7 @@ class Preference_Model(nn.Module):
         #pooling:每个时间步都pooling了
             #day pooling
         cum_subs_avg,cum_subs_mask=self.fun_avg_pooling(inputs_embs,pref_inputs[5])#embs=512,(batch_size,sq,7,embs_size_pois+embs_size_ctxt)
-        cum_subs_mask=cum_subs_mask.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
+        cum_subs_mask=cum_subs_mask.unsqueeze(1).expand(-1,num_neg+1,-1,-1) #(bs,neg_num+1,7,1)
             #hour pooling
         cum_subs_avg_hour,cum_subs_mask_hour=self.fun_avg_pooling(inputs_embs,pref_inputs[6]) # (batch_size, sq, 24, embs)
         cum_subs_mask_hour=cum_subs_mask_hour.unsqueeze(1).expand(-1,num_neg+1,-1,-1)

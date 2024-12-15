@@ -205,7 +205,7 @@ class MLP_LN(nn.Module):
         
         x = self.layernorm2(x)
         y = self.dense_score(x)
-        # y = self.acti1(y)#(bs,sq,1) 匹配BCEWithLogitsLoss
+        y = self.acti1(y)#(bs,sq,1)
         return y
     
 class MLP_LN_SIGMOID(nn.Module):

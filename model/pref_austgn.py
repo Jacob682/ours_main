@@ -42,9 +42,12 @@ class Pref_Austgn(nn.Module):
         self.sequential_model = Sequential_Model(stgn_embs, num_x, mlp_units[1], num_rec) 
     
         # self.itst_mlp_bn = MLP_BN4d(mlp_units[0], 4, self.hidden_size)
-        # self.inner_attn = BahdanauAttention_softmax(mlp_units[0][-1], self.query_size, self.hidden_size)
-        self.attn_day = BahdanauAttention_softmax(self.hidden_size, self.query_size, self.hidden_size)
-        self.out_mlp = MLP_LN(mlp_units[1], mlp_units[0][-1])
+        
+
+        self.inner_attn = BahdanauAttention_softmax(mlp_units[0][-1], self.query_size, self.hidden_size)
+        # self.attn_day = BahdanauAttention_softmax(self.hidden_size, self.query_size, self.hidden_size)
+        self.out_mlp = MLP_LN(mlp_units[1], mlp_units[0][-1] + self.query_size)
+        # self.out_mlp = MLP_LN(mlp_units[1], self.query_size+self.hidden_size*4)
 
     def forward(self, inputs, num_neg):
         '''
@@ -61,14 +64,14 @@ class Pref_Austgn(nn.Module):
         seq_poi = torch.unsqueeze(seq_poi, dim=1).expand(-1, num_neg+1, -1)
         seq_cat = torch.unsqueeze(seq_cat, dim=1).expand(-1, num_neg+1, -1)
 
-        # inner attn
-        # inner_keys = torch.stack([pref_day, pref_hour, seq_poi, seq_cat], dim = 2)# (batch_size, neg_num+1, key_num, embs)
-        # # inner_keys_bn = self.itst_mlp_bn(inner_keys) #(batch_size, neg_num, key_nums, embs)
+        
 
-        # inner_attn_out, _ = self.inner_attn(queries, inner_keys, None, num_neg) # q(batch_size, num_neg, embs);key(batch_size, key_num, embs);out(batch_size, neg_num, key_size)
-            # hiera_att
-        day_attn_out, _ = self.inner_attn(queries, pref_day, None, num_neg)
-        model_out = self.out_mlp(inner_attn_out) #(batch_size, neg_num, 1)
+        # inner attn
+        inner_keys = torch.stack([pref_day, pref_hour, seq_poi, seq_cat], dim = 2)# (batch_size, neg_num+1, key_num, embs)
+        inner_attn_out, _ = self.inner_attn(queries, inner_keys, None, num_neg) # q(batch_size, num_neg, embs);key(batch_size, key_num, embs);out(batch_size, neg_num, key_size)
+        inner_attn_out = torch.cat([queries, inner_attn_out], dim=-1) # (batch_size, neg_num, embs+key_size)
+        
+        model_out = self.out_mlp(inner_attn_out)
         
         return model_out, torch.stack(shuffled_indices) #返回indice张量
         

@@ -116,6 +116,15 @@ def Process_data(dir_data, batch_size):
             else:
                 xy_dit[key] = torch.tensor(value, dtype=torch.int)
         return xy_dit
+    # def fun_pad_dit(dic_xy):
+    #     for key,value in dic_xy.items():
+    #         if not isinstance(value[0][0],list):#二维列表
+    #             flat_list=[item for sublist in value for item in sublist]
+    #             dic_xy[key]=torch.tensor(flat_list,dtype=torch.long)
+    #         else:#三维列表
+    #             flat_list=[torch.tensor(item) for sublist in value for item in sublist]
+    #             dic_xy[key]=pad_sequence(flat_list,batch_first=True,padding_value=0)
+    #     return dic_xy
     
     with open(dir_data, 'rb') as f:
         data = pickle.load(f)
@@ -259,11 +268,12 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             
 @exe_time
 def main_nyc():
-    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
-                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl']
-    dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/tes.pkl'] # 做成列表为了共用fun_save_data
+    dir_input_lists = [
+                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
+                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl']
+    dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
-    num_negs = [3905, 3906] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
+    num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
     batch_size, num_epoch = 30, 100
     delta = 1

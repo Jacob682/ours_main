@@ -69,7 +69,7 @@ class Preference_Model(nn.Module):
         def divide_no_nan(x, y, large_value=1e9):
             mask = y == 0
             y = y.masked_fill(mask, large_value)
-            result=x / y
+            result = x / y
             return result
         
         subs_days_masks=subs_days_masks.float()

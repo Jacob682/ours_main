@@ -76,48 +76,70 @@ class AUSTGN(nn.Module):
         '''
 
         # 将张量做成PackedSequence类，放入模型中。模型中得到每个batch的时间步
-        # keys_length = keys_length.squeeze(-1).to(torch.int64).cpu()
+        keys_length = keys_length.squeeze(-1).to(torch.int64).cpu()
         # input_packed = pack_padded_sequence(input, keys_length, batch_first=True, enforce_sorted=False)
         # q_packed= pack_padded_sequence(x_q, keys_length, batch_first=True, enforce_sorted=False)
 
         # input, lengths = pad_packed_sequence(input_packed, batch_first=True) # 填充成长度相等的三维张量|lenght(batch),真实的长度
         # q_unpacked, _ = pad_packed_sequence(q_packed, batch_first=True) 
         batch_size, seq_len = input.size(0), input.size(1)
-        hidden_seq = [] # 所有隐藏状态
+        # hidden_seq = [] # 所有隐藏状态
+        hidden_seq_attn = torch.zeros(batch_size, seq_len, self.hidden_sz, device=input.device) # 用于最后输出
+        past_h = torch.zeros(batch_size, self.hidden_sz, self.hidden_sz, device=input.device) # 用于计算attn的h_t
          
         if init_state is None: # 初始化最初状态
             h_t, c_t= (
                 torch.zeros(batch_size, self.hidden_sz, device=input.device), # h_t只包含当前时间步的
                 torch.zeros(batch_size, self.hidden_sz, device=input.device)
             )
-            at = 1 # 第一个时间步的attn分数
         else:
             h_t, c_t = init_state
-            at = 1 # 暂时设置分数为1
 
         for t in range(seq_len): # 迭代每个时间步
             
-            Tt=input[:,t,0].unsqueeze(1)
-            Dt=input[:,t,1].unsqueeze(1)
-            xt=input[:,t,2:]
+            mask = (keys_length > t).long() # 取当前有效的样本 （batch_size), 1有效，0无效
+            if not mask.any(): # 如果没有有效的样本，直接跳过
+                break
+            valid_indices = mask.nonzero().squeeze() #(batch_size) 返回非0的索引,由于样本被打乱，并不知道哪些位置有效
+
+            Tt=input[valid_indices,t,0].unsqueeze(1) # 取有效样本更新
+            Dt=input[valid_indices,t,1].unsqueeze(1)
+            xt=input[valid_indices,t,2:]
+            qt=x_q[valid_indices,t,:]
+
+            if t == 0:
+                at = 1
+            else:
+                past_h_valid = past_h[valid_indices, :t, :] #(batch_size, seq_len,embs)
+                qt = self.linear_a(qt.unsqueeze(1)) # (batch_size, q_num, hidden)
+                at, _ = self.attn(qt, past_h_valid, past_h_valid) # 输出(attn_score, attn_weight) | (batch_size, targe_num, embs), 此时的target只有一个
+                at = at.squeeze(1) # (batch_size, embs)
 
             #更新门组件及内部候选状态
-            it=torch.sigmoid(xt@self.Wxi+h_t@self.Whi+self.bi)
-            ft=torch.sigmoid(xt@self.Wxf+h_t@self.Whf+self.bf)
-            j=torch.tanh(xt@self.Wxc+h_t@self.Whc+self.bc)
-            T1t=torch.sigmoid(xt@self.Wxt1+torch.sigmoid(Tt@self.Wt1)+self.bt1)
-            T2t=torch.sigmoid(xt@self.Wxt2+torch.sigmoid(Tt@self.Wt2)+self.bt2)
-            D1t=torch.sigmoid(xt@self.Wxd1+torch.sigmoid(Dt@self.Wd1)+self.bd1)
-            D2t=torch.sigmoid(xt@self.Wxd2+torch.sigmoid(Dt@self.Wd2)+self.bd2)
-            c_hat=ft*c_t+it*T1t*D1t*j
-            c_t=ft*c_t+it*T2t*D2t*j
-            ot=torch.sigmoid(xt@self.Wxo+h_t@self.Who+Tt@self.Wto+Dt@self.Wdo+self.bo)
-            h_t=ot*torch.tanh(c_hat)
+            it = torch.sigmoid(xt @ self.Wxi + h_t[valid_indices] @ self.Whi + self.bi) # (batch_size, embs)
+            ft = torch.sigmoid(xt @ self.Wxf + h_t[valid_indices] @ self.Whf + self.bf) # (batch_size, embs)
+            c_tilde = torch.tanh(xt @ self.Wxc + h_t[valid_indices] @ self.Whc + self.bc) #(batch_size, embs)
+            ot = torch.sigmoid(xt @ self.Wxo + h_t[valid_indices] @ self.Who + Tt @ self.Wto + Dt @ self.Wdo + self.bo)
 
-            hidden_seq.append(h_t.unsqueeze(0))
-        hidden_seq=torch.cat(hidden_seq,dim=0)#(seq,bs,emb) tensor
-        hidden_seq=hidden_seq.transpose(0,1).contiguous()#(bs,seq,emb) tensor
-        return hidden_seq,(h_t,c_t)#hidden_seq是所有时间步的隐藏向量，h_t是最后一个隐藏向量，c_t是当前时间步的状态
+            it_prime = it * at
+            ft_prime = ft * at
+
+            
+            T1t = torch.sigmoid(xt @ self.Wxt1 + torch.sigmoid(Tt @ self.Wt1) + self.bt1) # (batch_size, embs)
+            T2t = torch.sigmoid(xt @ self.Wxt2 + torch.sigmoid(Tt @ self.Wt2) + self.bt2)
+            D1t = torch.sigmoid(xt @ self.Wxd1 + torch.sigmoid(Dt @ self.Wd1) + self.bd1)
+            D2t = torch.sigmoid(xt @ self.Wxd2 + torch.sigmoid(Dt @ self.Wd2) + self.bd2)
+            
+            c_hat = ft_prime * c_t[valid_indices] + it_prime * T1t * D1t * c_tilde # (batch_size, embs)
+            c_t[valid_indices] = ft_prime * c_t[valid_indices] + it_prime * T2t * D2t * c_tilde # (batch_size, embs)
+
+            h_new = ot * torch.tanh(c_hat)
+
+            h_t[valid_indices] = h_new # 当前有效时间步的h_t
+
+            hidden_seq_attn[valid_indices, t, :] = h_new # 用于输出的隐藏状态 (batch_size, seq_len, embs)
+            past_h[valid_indices, t, :] = h_new # 所有时间步，用于计算attn的隐藏状态
+        return hidden_seq_attn, (h_t, c_t)#hidden_seq是所有时间步的隐藏向量，h_t是最后一个隐藏向量，c_t是当前时间步的状态
 
             
 

@@ -10,7 +10,6 @@ from datetime import datetime
 import pickle
 import os
 import logging
-logging.basicConfig(filename='traning.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 os.environ['CUDA_VISIBLE_DEVICES']='1'
 import warnings
@@ -116,15 +115,6 @@ def Process_data(dir_data, batch_size):
             else:
                 xy_dit[key] = torch.tensor(value, dtype=torch.int)
         return xy_dit
-    # def fun_pad_dit(dic_xy):
-    #     for key,value in dic_xy.items():
-    #         if not isinstance(value[0][0],list):#二维列表
-    #             flat_list=[item for sublist in value for item in sublist]
-    #             dic_xy[key]=torch.tensor(flat_list,dtype=torch.long)
-    #         else:#三维列表
-    #             flat_list=[torch.tensor(item) for sublist in value for item in sublist]
-    #             dic_xy[key]=pad_sequence(flat_list,batch_first=True,padding_value=0)
-    #     return dic_xy
     
     with open(dir_data, 'rb') as f:
         data = pickle.load(f)
@@ -163,7 +153,6 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     model = Pref_Austgn(num_x, pref_embs, stgn_embs, mlp_units, num_layers, num_head, num_rec)
     model = model.cuda()
     loss_function = nn.BCELoss(reduce = 'mean')
-    # loss_function = nn.BCELoss(reduce='mean')
     optimizer = torch.optim.Adam(model.parameters(), lr, weight_decay=weight_decay)
     scaler = GradScaler()
     
@@ -220,57 +209,56 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 tra_acc_5 = tra_acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
         train_end = datetime.now()
         total = (train_end - train_start).total_seconds()
-        print('--total:@ %.3fs==%.3fmin'%(total, total/60))
-        print('tra:',
-              'epoch:[{}/{}]\t'.format(epoch, num_epoch),
-              'loss:{:.6f}\t'.format(train_epoch_loss),
-              'acc@1:{:.6f}\t'.format(tra_acc_1/len_tra),
-              'acc@5:{:.6f}\t'.format(tra_acc_5/len_tra),)
-        
 
-        # if epoch % 1 == 0:
-        #     with torch.no_grad():
-        #         model.eval()
-        #         test_epoch_loss = 0.0
-        #         acc_1, acc_5, acc_10, acc_15 = 0, 0, 0, 0
-        #         mrr = 0
+        # 写入log文件
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_filename = current_time + '.log'
+        logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.info('--total:@ %.3fs==%.3fmin'%(total, total/60))
+        logging.info('tra: epoch:[{}/{}]\t loss:{:.6f}\t acc@1:{:.6f}\t acc@5:{:.6f}\t'.\
+                     format(epoch, num_epoch, train_epoch_loss, tra_acc_1/len_tra, tra_acc_5/len_tra))
 
-        #         for batch_step, batch_inputs in enumerate(tst_inputs):
-        #             batch_inputs = to_cuda(batch_inputs)
-        #             austgn_inputs = batch_inputs[:14]
-        #             pref_inputs = batch_inputs[14:22]
-        #             y_inputs = batch_inputs[22:27]
-        #             neg_inputs = batch_inputs[27:]
-        #             model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
-        #             with autocast():
-        #                 outputs, shuffle_indices = model(model_inputs, num_neg[1])
-        #                 outputs = torch.squeeze(outputs, dim=-1)
-        #                 _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
-        #                 pos_position = (shuffle_indices == 0)
-        #                 y_shuffle = torch.zeros_like(shuffle_indices)
-        #                 y_shuffle[pos_position] = 1
-        #                 y_shuffle[~pos_position] = 0
-        #                 b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
-        #             test_epoch_loss = test_epoch_loss + b_avg_loss
-        #             y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
-        #             acc_1 = acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
-        #             acc_5 = acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
-        #             acc_10 = acc_10 + accuracy(sorted_indice, y_shuffle_1d, 10)
-        #             acc_15 = acc_15 + accuracy(sorted_indice, y_shuffle_1d, 15)
+        if epoch % 1 == 0:
+            with torch.no_grad():
+                model.eval()
+                test_epoch_loss = 0.0
+                acc_1, acc_5, acc_10, acc_15 = 0, 0, 0, 0
+                mrr = 0
+                tst_inputs = Process_data(dir_input_tst[0], batch_size)
+                for batch_step, batch_inputs in enumerate(tst_inputs):
+                    batch_inputs = to_cuda(batch_inputs)
+                    austgn_inputs = batch_inputs[:14]
+                    pref_inputs = batch_inputs[14:22]
+                    y_inputs = batch_inputs[22:27]
+                    neg_inputs = batch_inputs[27:]
+                    model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
+                    outputs, shuffle_indices = model(model_inputs, num_neg[1])
+                    outputs = torch.squeeze(outputs, dim=-1)
+                    _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
+                    pos_position = (shuffle_indices == 0)
+                    y_shuffle = torch.zeros_like(shuffle_indices)
+                    y_shuffle[pos_position] = 1
+                    y_shuffle[~pos_position] = 0
+                    b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
 
-        #         print('tst:',
-        #           'epoch:[{}/{}]\t'.format(epoch, num_epoch),
-        #           'tst_loss:{:.4f}\t'.format(test_epoch_loss),
-        #           'acc@1:{:.4f}\t'.format(acc_1/len_tes),
-        #           'acc@5:{:.4f}\t'.format(acc_5/len_tes),
-        #           'acc@10:{:.4f}\t'.format(acc_10/len_tes)
-        #         )
+                    test_epoch_loss = test_epoch_loss + b_avg_loss
+                    y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
+                    acc_1 = acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
+                    acc_5 = acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
+                    acc_10 = acc_10 + accuracy(sorted_indice, y_shuffle_1d, 10)
+                    acc_15 = acc_15 + accuracy(sorted_indice, y_shuffle_1d, 15)
+
+                logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+                logging.info('tst: epoch:[{}/{}]\t loss:{:.6f}\t acc@1:{:.6f}\t acc@5:{:.6f}\t acc@10:{:.6f}'.\
+                            format(epoch, num_epoch, test_epoch_loss, acc_1/len_tes, acc_5/len_tes, acc_10/len_tes, acc_15/len_tes))
+
             
 @exe_time
 def main_nyc():
-    dir_input_lists = [
-                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl',\
-                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl']
+    # dir_input_lists = [
+    #                    '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl',\
+    #                    '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl']
+    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg

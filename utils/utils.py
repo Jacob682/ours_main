@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from datetime import datetime
 import time
+import os
 from git import Repo
 SAVE_FOLDER_PATH = None
 
@@ -270,8 +271,7 @@ def load_checkpoint(model, optimizer, checkpoint_path=None):
     print(f"Model loaded from {checkpoint_path}")
     return model, optimizer, epoch
 
-import os
-from git import Repo
+
 
 def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
     try:

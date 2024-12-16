@@ -274,7 +274,7 @@ def main_nyc():
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
-    len_tra, len_tes = 82883, 1078
+    len_tra, len_tes = 82883, 1078 # gai
     batch_size, num_epoch = 30, 100
     delta = 1
     num_layers = 1

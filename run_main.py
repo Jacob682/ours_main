@@ -14,7 +14,7 @@ import logging
 os.environ['CUDA_VISIBLE_DEVICES']='1'
 import warnings
 warnings.filterwarnings('ignore')
-from utils.utils import accuracy, MRR, to_cuda, exe_time
+from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint
 from model.pref_austgn import Pref_Austgn
 
 
@@ -157,57 +157,65 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     scaler = GradScaler()
     
     # 在训练之前加载数据，避免每个epoch都花费2min生成数据,只执行一次
+    tra_inputs = Process_data(dir_inputs_lists[0], batch_size)
+    tst_inputs = Process_data(dir_input_tst[0], batch_size)
 
+    checkpoint_path = None
+    if checkpoint_path:
+        epoch_buck = load_checkpoint(model, optimizer, checkpoint_path)
+    else:
+        epoch_buck = 0
     
-    for epoch in range(num_epoch):
+    for epoch in range(epoch_buck, num_epoch):
         train_start = datetime.now()
 
         model.train()
         train_epoch_loss = 0.0
         tra_acc_1, tra_acc_5 = 0, 0
         mrr = 0
-        for dir_data in dir_inputs_lists:
-            tra_inputs = Process_data(dir_data, batch_size)
-            torch.cuda.empty_cache()
-            for batch, batch_inputs in enumerate(tra_inputs):
-                batch_inputs = to_cuda(batch_inputs)
-                optimizer.zero_grad()
-                austgn_inputs = batch_inputs[:14]
-                pref_inputs = batch_inputs[14:22]
-                y_inputs = batch_inputs[22:27]
-                neg_inputs = batch_inputs[27:]
-                model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
-                outputs, shuffle_indices = model(model_inputs, num_neg[0]) #(batch_size, neg_num, 1)
-                outputs = torch.squeeze(outputs, dim=-1) #(batch_size, neg_num)
-                
-                '''
-                outputs: (batch_size, neg_num)
-                shuffle_indices: (bs,neg_num),bs的list，neg_num的乱序index。index为具体数字
-                '''
-                # 计算整体的loss
-                ## 对输出结果排序
-                _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
+        
+        # for dir_data in dir_inputs_lists:
+        #     tra_inputs = Process_data(dir_data, batch_size)
+        #     torch.cuda.empty_cache()
+        for batch, batch_inputs in enumerate(tra_inputs):
+            batch_inputs = to_cuda(batch_inputs)
+            optimizer.zero_grad()
+            austgn_inputs = batch_inputs[:14]
+            pref_inputs = batch_inputs[14:22]
+            y_inputs = batch_inputs[22:27]
+            neg_inputs = batch_inputs[27:]
+            model_inputs = [austgn_inputs, pref_inputs, y_inputs, neg_inputs]
+            outputs, shuffle_indices = model(model_inputs, num_neg[0]) #(batch_size, neg_num, 1)
+            outputs = torch.squeeze(outputs, dim=-1) #(batch_size, neg_num)
+            
+            '''
+            outputs: (batch_size, neg_num)
+            shuffle_indices: (bs,neg_num),bs的list，neg_num的乱序index。index为具体数字
+            '''
+            # 计算整体的loss
+            ## 对输出结果排序
+            _, sorted_indice = torch.sort(outputs, dim=-1, descending=True)
 
-                #找到正样本的位置,生成bool掩码（true/false）
-                pos_position = (shuffle_indices == 0) # (batch_size, neg_num)将样本排序为0的位置设置为1，标识为正样本位置，因为正样本放在第一个位置，index=0
-                #用bool掩码得到正样本位置，并标识为1
-                y_shuffle = torch.zeros_like(shuffle_indices)
-                y_shuffle[pos_position] = 1 # 将正样本的位置设置为1
-                y_shuffle[~pos_position] = 0 # (batch_size, neg_num)
-                # 计算loss
-                b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
-                # 反向传播
-                b_avg_loss.backward()
-                optimizer.step()
-                train_epoch_loss = train_epoch_loss + b_avg_loss.item()
+            #找到正样本的位置,生成bool掩码（true/false）
+            pos_position = (shuffle_indices == 0) # (batch_size, neg_num)将样本排序为0的位置设置为1，标识为正样本位置，因为正样本放在第一个位置，index=0
+            #用bool掩码得到正样本位置，并标识为1
+            y_shuffle = torch.zeros_like(shuffle_indices)
+            y_shuffle[pos_position] = 1 # 将正样本的位置设置为1
+            y_shuffle[~pos_position] = 0 # (batch_size, neg_num)
+            # 计算loss
+            b_avg_loss = loss_function(outputs, (y_shuffle.to(torch.float32)).cuda())
+            # 反向传播
+            b_avg_loss.backward()
+            optimizer.step()
+            train_epoch_loss = train_epoch_loss + b_avg_loss.item()
 
-                
-                
-                # 计算评价指标
-                y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
-                tra_acc_1 = tra_acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
-                tra_acc_5 = tra_acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
-            torch.cuda.empty_cache()
+            
+            
+            # 计算评价指标
+            y_shuffle_1d = torch.nonzero(y_shuffle==1)[:,1]
+            tra_acc_1 = tra_acc_1 + accuracy(sorted_indice, y_shuffle_1d, 1)
+            tra_acc_5 = tra_acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
+        torch.cuda.empty_cache()
         train_end = datetime.now()
         total = (train_end - train_start).total_seconds()
 
@@ -218,6 +226,11 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         logging.info('--total:@ %.3fs==%.3fmin'%(total, total/60))
         logging.info('tra: epoch:[{}/{}]\t loss:{:.6f}\t acc@1:{:.6f}\t acc@5:{:.6f}\t'.\
                      format(epoch, num_epoch, train_epoch_loss, tra_acc_1/len_tra, tra_acc_5/len_tra))
+        
+        # 将模型保存到ckp文件夹下面
+        save_checkpoint(model, optimizer, epoch)
+
+
 
         if epoch % 1 == 0:
             with torch.no_grad():
@@ -225,7 +238,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                 test_epoch_loss = 0.0
                 acc_1, acc_5, acc_10, acc_15 = 0, 0, 0, 0
                 mrr = 0
-                tst_inputs = Process_data(dir_input_tst[0], batch_size)
+                
                 for batch_step, batch_inputs in enumerate(tst_inputs):
                     batch_inputs = to_cuda(batch_inputs)
                     austgn_inputs = batch_inputs[:14]
@@ -256,21 +269,19 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             
 @exe_time
 def main_nyc():
-    dir_input_lists = [
-                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra1.pkl',\
-                       '/data/liuqiuyu/POI_OURS_DATA/data/model_use/tra0.pkl']
+    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
     # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078
-    batch_size, num_epoch = 20, 100
+    batch_size, num_epoch = 30, 100
     delta = 1
     num_layers = 1
     num_head = 1
     dropout_overall = 0.1
     num_rec = 20
-    lr = 0.0001
+    lr = 0.001
     weight_decay = 0
     pref_embs = [256, 64, 32, 8, 16, 32]
     stgn_embs = [256, 128, 128, 64, 8, 16, 32] # (hidden,user,poi,cat,month/hour,hsh5)

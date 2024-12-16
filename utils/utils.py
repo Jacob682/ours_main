@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from datetime import datetime
+import time
 
 def divide_no_nan(x,y,nan_value=0.0):
             mask=y==0
@@ -242,3 +243,25 @@ class MLP_LN_SIGMOID(nn.Module):
         y = self.dense_score(x)
         y = self.acti1(y)#(bs,sq,1)
         return y
+
+def save_checkpoint(model, optimizer, epoch, save_dir='ckp')
+    timestamp = time.strftime('%m%d_%H%M%S', time.localtime(time.time()))
+    folder_path = os.path.join(save_dir, timestamp)
+
+    os.makedirs(folder_path, exist_ok=True)
+    checkpoint_path = os.path.join(folder_path, f'epoch_{epoch}.pt')
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }, checkpoint_path)
+    print(f"Model saved to {checkpoint_path}")
+
+
+def load_checkpoint(model, optimizer, checkpoint_path=None):
+    checkpoint = torch.load(checkpoint_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch']
+    print(f"Model loaded from {checkpoint_path}")
+    return model, optimizer, epoch

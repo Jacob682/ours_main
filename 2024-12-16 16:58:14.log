@@ -1,4 +1,4 @@
-batch=30; without; pattern-att; austgn
+batch=30; without pattern-att; austgn
 2024-12-16 16:58:14,093 - INFO - --total:@ 1758.125s==29.302min
 2024-12-16 16:58:14,093 - INFO - tra: epoch:[1/100]	 loss:6.336971	 acc@1:0.070762	 acc@5:0.128108	
 2024-12-16 16:58:22,859 - INFO - tst: epoch:[1/100]	 loss:0.072697	 acc@1:0.123377	 acc@5:0.201299	 acc@10:0.233766

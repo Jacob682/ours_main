@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from datetime import datetime
 import time
+from git import Repo
+SAVE_FOLDER_PATH = None
 
 def divide_no_nan(x,y,nan_value=0.0):
             mask=y==0
@@ -244,12 +246,14 @@ class MLP_LN_SIGMOID(nn.Module):
         y = self.acti1(y)#(bs,sq,1)
         return y
 
-def save_checkpoint(model, optimizer, epoch, save_dir='ckp'):
-    timestamp = time.strftime('%m%d_%H%M%S', time.localtime(time.time()))
-    folder_path = os.path.join(save_dir, timestamp)
+def save_checkpoint(model, optimizer, epoch, save_dir):
+    global SAVE_FOLDER_PATH
+    if SAVE_FOLDER_PATH is None:
+        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+        SAVE_FOLDER_PATH = os.path.join(save_dir, timestamp)
+        os.makedirs(SAVE_FOLDER_PATH, exist_ok=True)
 
-    os.makedirs(folder_path, exist_ok=True)
-    checkpoint_path = os.path.join(folder_path, f'epoch_{epoch}.pt')
+    checkpoint_path = os.path.join(SAVE_FOLDER_PATH, f'epoch_{epoch}.pt')
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -265,3 +269,31 @@ def load_checkpoint(model, optimizer, checkpoint_path=None):
     epoch = checkpoint['epoch']
     print(f"Model loaded from {checkpoint_path}")
     return model, optimizer, epoch
+
+import os
+from git import Repo
+
+def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
+    try:
+        # 检查 .git 是文件还是文件夹
+        git_path = os.path.join(repo_path, '.git')
+        if os.path.isfile(git_path):
+            # 如果 .git 是文件，读取实际的 gitdir 路径
+            with open(git_path, 'r') as f:
+                line = f.readline().strip()
+                if line.startswith("gitdir:"):
+                    git_dir = line.split(": ")[1]
+                else:
+                    raise ValueError(f"Invalid .git file format: {line}")
+        elif os.path.isdir(git_path):
+            git_dir = git_path
+        else:
+            raise FileNotFoundError(f"No .git found in {repo_path}")
+
+        # 使用解析后的路径初始化 Repo
+        repo = Repo(git_dir)
+        return repo.active_branch.name
+    except Exception as e:
+        print('Error while getting branch:', e)
+        return None
+           

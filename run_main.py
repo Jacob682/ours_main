@@ -150,6 +150,8 @@ def Process_data(dir_data, batch_size):
 def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
                     pref_embs, stgn_embs, mlp_units, dir_inputs_lists, dir_input_tst, len_tra, len_tes, num_neg, num_head, num_rec):
     
+    git_branch = get_current_branch()
+
     model = Pref_Austgn(num_x, pref_embs, stgn_embs, mlp_units, num_layers, num_head, num_rec)
     model = model.cuda()
     loss_function = nn.BCELoss(reduce = 'mean')
@@ -160,6 +162,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     tra_inputs = Process_data(dir_inputs_lists[0], batch_size)
     tst_inputs = Process_data(dir_input_tst[0], batch_size)
 
+    
     checkpoint_path = None
     if checkpoint_path and os.path.exists(checkpoint_path):
         epoch_buck = load_checkpoint(model, optimizer, checkpoint_path)
@@ -228,7 +231,9 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                      format(epoch, num_epoch, train_epoch_loss, tra_acc_1/len_tra, tra_acc_5/len_tra))
         
         # 将模型保存到ckp文件夹下面
-        save_checkpoint(model, optimizer, epoch)
+        checkpoint_save_root_dir = '/home/liuqiuyu/ckp'
+        checkpoint_save_dir = os.path.join(checkpoint_save_root_dir, git_branch)
+        save_checkpoint(model, optimizer, epoch, save_dir=checkpoint_save_dir)
 
 
 

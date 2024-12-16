@@ -158,16 +158,16 @@ class Preference_Model(nn.Module):
         keys=cum_subs_avg#(bs,sq,7,hidden_size)|(bs,7,hidden_size)
         queries=ipt_q#(bs,sq,21,embs)|(bs,neg_num,embs),公用
         attn_out_day,attn_w=self.attn(queries,keys,cum_subs_mask,num_neg)#(bs,sq,21,hidden_size),(bs,sq,21,7,1)|(bs,21,h),(bs,7,embs)
-        self_attn_out_day, _ = self.multihead_attn_day(attn_out_day, attn_out_day, attn_out_day)#k, q, v (bs, neg_num+1, h)
+        # self_attn_out_day, _ = self.multihead_attn_day(attn_out_day, attn_out_day, attn_out_day)#k, q, v (bs, neg_num+1, h)
             #hour
         keys_hour=cum_subs_avg_hour
         attn_out_hour,_=self.attn(queries,keys_hour,cum_subs_mask_hour,num_neg)
-        self_attn_out_hour, _ = self.multihead_attn_hour(attn_out_hour, attn_out_hour, attn_out_hour)
+        # self_attn_out_hour, _ = self.multihead_attn_hour(attn_out_hour, attn_out_hour, attn_out_hour)
             #hsh
         # keys_hsh=cum_subs_avg_hsh
         # attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg)
         # self_attn_out_geo, _ = self.multihead_attn_geo(attn_out_hsh, attn_out_hsh, attn_out_hsh)
         # pref_out = (self_attn_out_day, self_attn_out_hour, self_attn_out_geo, queries)
 
-        pref_out = (self_attn_out_day, self_attn_out_hour, queries)
+        pref_out = (attn_out_day, attn_out_hour, queries)
         return pref_out, shuffled_indices

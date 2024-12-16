@@ -11,7 +11,7 @@ import pickle
 import os
 import logging
 
-os.environ['CUDA_VISIBLE_DEVICES']='1'
+os.environ['CUDA_VISIBLE_DEVICES']='0'
 import warnings
 warnings.filterwarnings('ignore')
 from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint

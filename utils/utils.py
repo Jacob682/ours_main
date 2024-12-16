@@ -244,7 +244,7 @@ class MLP_LN_SIGMOID(nn.Module):
         y = self.acti1(y)#(bs,sq,1)
         return y
 
-def save_checkpoint(model, optimizer, epoch, save_dir='ckp')
+def save_checkpoint(model, optimizer, epoch, save_dir='ckp'):
     timestamp = time.strftime('%m%d_%H%M%S', time.localtime(time.time()))
     folder_path = os.path.join(save_dir, timestamp)
 

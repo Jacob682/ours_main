@@ -161,12 +161,12 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     tst_inputs = Process_data(dir_input_tst[0], batch_size)
 
     checkpoint_path = None
-    if checkpoint_path:
+    if checkpoint_path and os.path.exists(checkpoint_path):
         epoch_buck = load_checkpoint(model, optimizer, checkpoint_path)
     else:
         epoch_buck = 0
     
-    for epoch in range(epoch_buck, num_epoch):
+    for epoch in range(epoch_buck + 1, num_epoch):
         train_start = datetime.now()
 
         model.train()

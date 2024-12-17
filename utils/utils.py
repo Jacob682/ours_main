@@ -248,13 +248,13 @@ class MLP_LN_SIGMOID(nn.Module):
         return y
 
 def save_checkpoint(model, optimizer, epoch, save_dir):
-    global SAVE_FOLDER_PATH
+    global SAVE_FOLDER_PATH # 运行第一次的时间，之后不变
     if SAVE_FOLDER_PATH is None:
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
-        SAVE_FOLDER_PATH = os.path.join(save_dir, timestamp)
+        SAVE_FOLDER_PATH = os.path.join(save_dir, timestamp) # /home/liuqiuyu/ckp/branch_name/时间戳
         os.makedirs(SAVE_FOLDER_PATH, exist_ok=True)
 
-    checkpoint_path = os.path.join(SAVE_FOLDER_PATH, f'epoch_{epoch}.pt')
+    checkpoint_path = os.path.join(SAVE_FOLDER_PATH, f'epoch_{epoch}.pt') # /home/liuqiuyu/ckp/branch_name/时间戳/epoch_i.pt
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),

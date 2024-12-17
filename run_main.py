@@ -14,7 +14,7 @@ import logging
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 import warnings
 warnings.filterwarnings('ignore')
-from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint
+from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint, get_current_branch
 from model.pref_austgn import Pref_Austgn
 
 
@@ -148,7 +148,7 @@ def Process_data(dir_data, batch_size):
 
 @exe_time
 def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
-                    pref_embs, stgn_embs, mlp_units, dir_inputs_lists, dir_input_tst, len_tra, len_tes, num_neg, num_head, num_rec):
+                    pref_embs, stgn_embs, mlp_units, dir_inputs_lists, dir_input_tst, len_tra, len_tes, num_neg, num_head, num_rec, checkpoint_path=None):
     
     git_branch = get_current_branch()
 
@@ -163,7 +163,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
     tst_inputs = Process_data(dir_input_tst[0], batch_size)
 
     
-    checkpoint_path = None
+    # load_checkpoint位置
     if checkpoint_path and os.path.exists(checkpoint_path):
         epoch_buck = load_checkpoint(model, optimizer, checkpoint_path)
     else:
@@ -223,8 +223,14 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         total = (train_end - train_start).total_seconds()
 
         # 写入log文件
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_filename = current_time + '.log'
+        log_save_root_dir = '/home/liuqiuyu/ckp/git实验结果/' # 根目录
+        branch_root_dir = os.path.join(log_save_root_dir, git_branch) # 加分支名 /home/liuqiuyu/ckp/git_branch
+        os.makedirs(branch_root_dir, exist_ok=True)
+
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
+        log_filename = os.path.join(branch_root_dir, current_time + '.log') # 加时间戳文件名 '/home/liuqiuyu/ckp/git实验结果/git_branch/current_time.log'
+        
+
         logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         logging.info('--total:@ %.3fs==%.3fmin'%(total, total/60))
         logging.info('tra: epoch:[{}/{}]\t loss:{:.6f}\t acc@1:{:.6f}\t acc@5:{:.6f}\t'.\
@@ -232,7 +238,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         
         # 将模型保存到ckp文件夹下面
         checkpoint_save_root_dir = '/home/liuqiuyu/ckp'
-        checkpoint_save_dir = os.path.join(checkpoint_save_root_dir, git_branch)
+        checkpoint_save_dir = os.path.join(checkpoint_save_root_dir, git_branch) # /home/liuqiuyu/ckp/branch_name
         save_checkpoint(model, optimizer, epoch, save_dir=checkpoint_save_dir)
 
 
@@ -293,8 +299,9 @@ def main_nyc():
     pref_mlp_units = [512, 128, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
     num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
+    checkpoint_path = None
 
     run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
-                    pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_input_tst, len_tra, len_tes, num_negs, num_head, num_rec)
+                    pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_input_tst, len_tra, len_tes, num_negs, num_head, num_rec, checkpoint_path)
 if __name__ =='__main__':
      main_nyc()

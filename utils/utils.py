@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+# os.environ['CUDA_VISIBLE_DEVICES']='0'
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,6 +9,7 @@ import os
 from git import Repo
 SAVE_FOLDER_PATH = None
 import pandas as pd
+import subprocess
 
 def divide_no_nan(x,y,nan_value=0.0):
             mask=y==0
@@ -285,7 +286,37 @@ def save_model_res(result_save_root_dir, git_branch, epoch,\
         
 
 
+# def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
+    # try:
+    #     # 检查 .git 是文件还是文件夹
+    #     git_path = os.path.join(repo_path, '.git')
+    #     if os.path.isfile(git_path):
+    #         # 如果 .git 是文件，读取实际的 gitdir 路径
+    #         with open(git_path, 'r') as f:
+    #             line = f.readline().strip()
+    #             if line.startswith("gitdir:"):
+    #                 git_dir = line.split(": ")[1]
+    #             else:
+    #                 raise ValueError(f"Invalid .git file format: {line}")
+    #     elif os.path.isdir(git_path):
+    #         git_dir = git_path
+    #     else:
+    #         raise FileNotFoundError(f"No .git found in {repo_path}")
+
+    #     # 使用解析后的路径初始化 Repo
+    #     repo = Repo(git_dir)
+    #     return repo.active_branch.name
+    # except Exception as e:
+    #     print('Error while getting branch:', e)
+    #     return None
+
 def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
+    script_path = os.path.abspath(__file__)
+    parent_dir = os.path.dirname(script_path)
+    grandpa_dir = os.path.dirname(parent_dir)
+    grandpa_name = os.path.basename(grandpa_dir)
+    if grandpa_name != 'POI_OURS':
+        return grandpa_name
     try:
         # 检查 .git 是文件还是文件夹
         git_path = os.path.join(repo_path, '.git')
@@ -308,4 +339,7 @@ def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
     except Exception as e:
         print('Error while getting branch:', e)
         return None
-           
+
+
+
+# print(get_current_branch())

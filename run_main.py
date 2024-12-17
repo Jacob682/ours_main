@@ -11,7 +11,7 @@ import pickle
 import os
 import logging
 
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 import warnings
 warnings.filterwarnings('ignore')
 from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint, get_current_branch, save_model_res
@@ -287,8 +287,8 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             
 @exe_time
 def main_nyc():
-    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
-    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
+    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
+    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
@@ -306,8 +306,8 @@ def main_nyc():
     pref_mlp_units = [512, 128, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
     num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
-    checkpoint_path = '/home/liuqiuyu/ckp/不规则命名/without_pattern_selfattn ckp/1216_192538/epoch_6.pt'
-
+    # checkpoint_path = '/home/liuqiuyu/ckp/不规则命名/without_pattern_selfattn ckp/1216_192538/epoch_6.pt'
+    checkpoint_path = None
     run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
                     pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_input_tst, len_tra, len_tes, num_negs, num_head, num_rec, checkpoint_path)
 if __name__ =='__main__':

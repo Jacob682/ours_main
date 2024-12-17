@@ -14,7 +14,7 @@ import logging
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 import warnings
 warnings.filterwarnings('ignore')
-from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint, get_current_branch
+from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint, get_current_branch, save_model_res
 from model.pref_austgn import Pref_Austgn
 
 
@@ -168,6 +168,20 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         epoch_buck = load_checkpoint(model, optimizer, checkpoint_path)
     else:
         epoch_buck = 0
+
+    # 保存结果的位置
+    checkpoint_save_root_dir = '/home/liuqiuyu/ckp' # ckp文件夹
+    checkpoint_save_dir = os.path.join(checkpoint_save_root_dir, git_branch) # /home/liuqiuyu/ckp/branch_name | 时间/.pt
+    
+    # 保存每个epoch指标文件的位置
+    log_save_root_dir = '/home/liuqiuyu/ckp/git实验结果/' # 指标结果根目录|
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # 固定时间
+    branch_root_dir = os.path.join(log_save_root_dir, git_branch) # 加分支名 /home/liuqiuyu/ckp/git_branch
+    os.makedirs(branch_root_dir, exist_ok=True)
+    log_filename = os.path.join(branch_root_dir, current_time + '.log') # 加时间戳文件名 '/home/liuqiuyu/ckp/git实验结果/git_branch/current_time.log'
+    
+    # 保存每次实验结果的位置
+    result_save_root_dir = '/home/liuqiuyu/ckp/每次实验结果/' # 根目录，完整目录：/home/liuqiuyu/ckp/每次实验结果/git_branch/实验时间/epoch.log
     
     for epoch in range(epoch_buck + 1, num_epoch):
         train_start = datetime.now()
@@ -223,12 +237,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
         total = (train_end - train_start).total_seconds()
 
         # 写入log文件
-        log_save_root_dir = '/home/liuqiuyu/ckp/git实验结果/' # 根目录
-        branch_root_dir = os.path.join(log_save_root_dir, git_branch) # 加分支名 /home/liuqiuyu/ckp/git_branch
-        os.makedirs(branch_root_dir, exist_ok=True)
-
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
-        log_filename = os.path.join(branch_root_dir, current_time + '.log') # 加时间戳文件名 '/home/liuqiuyu/ckp/git实验结果/git_branch/current_time.log'
+        
         
 
         logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -237,11 +246,7 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                      format(epoch, num_epoch, train_epoch_loss, tra_acc_1/len_tra, tra_acc_5/len_tra))
         
         # 将模型保存到ckp文件夹下面
-        checkpoint_save_root_dir = '/home/liuqiuyu/ckp'
-        checkpoint_save_dir = os.path.join(checkpoint_save_root_dir, git_branch) # /home/liuqiuyu/ckp/branch_name
         save_checkpoint(model, optimizer, epoch, save_dir=checkpoint_save_dir)
-
-
 
         if epoch % 1 == 0:
             with torch.no_grad():
@@ -272,7 +277,9 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
                     acc_5 = acc_5 + accuracy(sorted_indice, y_shuffle_1d, 5)
                     acc_10 = acc_10 + accuracy(sorted_indice, y_shuffle_1d, 10)
                     acc_15 = acc_15 + accuracy(sorted_indice, y_shuffle_1d, 15)
-
+                    #追加batch结果到epoch的具体结果
+                    save_model_res(result_save_root_dir, git_branch, epoch, sorted_indice, y_shuffle_1d, current_time)
+                # 实验指标写入log文件
                 logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
                 logging.info('tst: epoch:[{}/{}]\t loss:{:.6f}\t acc@1:{:.6f}\t acc@5:{:.6f}\t acc@10:{:.6f}'.\
                             format(epoch, num_epoch, test_epoch_loss, acc_1/len_tes, acc_5/len_tes, acc_10/len_tes, acc_15/len_tes))
@@ -280,8 +287,8 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             
 @exe_time
 def main_nyc():
-    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
-    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
+    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
+    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
     dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg

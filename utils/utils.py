@@ -8,6 +8,7 @@ import time
 import os
 from git import Repo
 SAVE_FOLDER_PATH = None
+import pandas as pd
 
 def divide_no_nan(x,y,nan_value=0.0):
             mask=y==0
@@ -271,6 +272,17 @@ def load_checkpoint(model, optimizer, checkpoint_path=None):
     print(f"Model loaded from {checkpoint_path}")
     return model, optimizer, epoch
 
+def save_model_res(result_save_root_dir, git_branch, epoch,\
+                   indices, batch_y, current_time, k=20):
+    res_root_dir = os.path.join(result_save_root_dir, git_branch, current_time) # 加分支名 /home/liuqiuyu/ckp/每次实验结果/git_branch/实验时间/
+    os.makedirs(res_root_dir, exist_ok=True)
+    res_log_filename = os.path.join(res_root_dir, f'epoch_{epoch}.log') # 加时间戳文件名 /home/liuqiuyu/ckp/每次实验结果/git_branch/实验时间/epoch.log
+    with open(res_log_filename, 'a') as f:
+        for i in range(indices.size(0)):
+            sort=indices[i][:k] # 一个样本的预测结果 (1,20) list
+            line = f'sort: {sort}, batch_y: {batch_y[i].item()}\n'
+            f.write(line)
+        
 
 
 def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):

@@ -11,7 +11,7 @@ import pickle
 import os
 import logging
 
-os.environ['CUDA_VISIBLE_DEVICES']='4'
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 import warnings
 warnings.filterwarnings('ignore')
 from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint, get_current_branch, save_model_res
@@ -287,13 +287,13 @@ def run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_
             
 @exe_time
 def main_nyc():
-    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
-    # # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
-    # dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
+    dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl']
+    # dir_input_lists = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] 
+    dir_input_tst = ['/data/liuqiuyu/POI_OURS_DATA/data/model_use/dataset_TSMC2014_NYC_tes.pkl'] # 做成列表为了共用fun_save_data
     
-    dir_input_lists = ["/home/liuqiuyu/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl"]
-    # dir_input_lists = ["/home/liuqiuyu/data/model_use/dataset_TSMC2014_NYC_tes.pkl"]
-    dir_input_tst = ["/home/liuqiuyu/data/model_use/dataset_TSMC2014_NYC_tes.pkl"]
+    # dir_input_lists = ["/home/liuqiuyu/data/model_use/dataset_TSMC2014_NYC_tra_all.pkl"]
+    # # dir_input_lists = ["/home/liuqiuyu/data/model_use/dataset_TSMC2014_NYC_tes.pkl"]
+    # dir_input_tst = ["/home/liuqiuyu/data/model_use/dataset_TSMC2014_NYC_tes.pkl"]
 
     num_negs = [3905, 3905] #一个是tra的neg(需要+1，补正样本），一个是tes的neg
     len_tra, len_tes = 82883, 1078

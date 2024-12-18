@@ -11,7 +11,7 @@ import pickle
 import os
 import logging
 
-os.environ['CUDA_VISIBLE_DEVICES']='1'
+os.environ['CUDA_VISIBLE_DEVICES']='4'
 import warnings
 warnings.filterwarnings('ignore')
 from utils.utils import accuracy, MRR, to_cuda, exe_time, save_checkpoint, load_checkpoint, get_current_branch, save_model_res
@@ -310,8 +310,9 @@ def main_nyc():
     pref_mlp_units = [512, 128, 256] # 此处pref_mlp_units[-1]和stgn.hidden_size相同，为了inner_attn维度对齐
     mlp_units = (pref_mlp_units, [1024, 512, 1])
     num_x = [1079, 3906, 285, 96, 8, 25, 20] #hsh[0-95]共96个
-    checkpoint_path = '/home/liuqiuyu/ckp/ours_main/austgn_all_data_without_pattern_selfattn/2024-12-17_20-13-23/epoch_12.pt'
-
+    # checkpoint_path = '/home/liuqiuyu/ckp/ours_main/austgn_all_data_without_pattern_selfattn/2024-12-17_20-13-23/epoch_12.pt'
+    
+    checkpoint_path = None
     run_pref_austgn(batch_size, num_epoch, delta, num_layers, num_x, lr, weight_decay, \
                     pref_embs, stgn_embs, mlp_units, dir_input_lists, dir_input_tst, len_tra, len_tes, num_negs, num_head, num_rec, checkpoint_path)
 if __name__ =='__main__':

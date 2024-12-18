@@ -286,6 +286,12 @@ def save_model_res(result_save_root_dir, git_branch, epoch,\
 
 
 def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
+    script_path = os.path.abspath(__file__)
+    parent_dir = os.path.dirname(script_path)
+    grandpa_dir = os.path.dirname(parent_dir)
+    grandpa_name = os.path.basename(grandpa_dir)
+    if grandpa_name != 'POI_OURS':
+        return grandpa_name
     try:
         # 检查 .git 是文件还是文件夹
         git_path = os.path.join(repo_path, '.git')
@@ -308,4 +314,5 @@ def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
     except Exception as e:
         print('Error while getting branch:', e)
         return None
+
            

@@ -141,8 +141,8 @@ class Preference_Model(nn.Module):
         cum_subs_avg_hour,cum_subs_mask_hour=self.fun_avg_pooling(inputs_embs,pref_inputs[6]) # (batch_size, sq, 24, embs)
         cum_subs_mask_hour=cum_subs_mask_hour.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
             #zone pooling
-        # cum_subs_avg_hsh,cum_subs_mask_hsh=self.fun_avg_pooling(inputs_embs,pref_inputs[7]) #(batch_size, sq, 95, embs)
-        # cum_subs_mask_hsh=cum_subs_mask_hsh.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
+        cum_subs_avg_hsh,cum_subs_mask_hsh=self.fun_avg_pooling(inputs_embs,pref_inputs[7]) #(batch_size, sq, 95, embs)
+        cum_subs_mask_hsh=cum_subs_mask_hsh.unsqueeze(1).expand(-1,num_neg+1,-1,-1)
 
          #pooling->fc
             #day
@@ -150,7 +150,7 @@ class Preference_Model(nn.Module):
             #hour
         cum_subs_avg_hour=self.dense_hour(cum_subs_avg_hour)
             #zoom
-        # cum_subs_avg_hsh=self.dense_geo(cum_subs_avg_hsh)
+        cum_subs_avg_hsh=self.dense_geo(cum_subs_avg_hsh)
 
             #att
         #att
@@ -164,10 +164,10 @@ class Preference_Model(nn.Module):
         attn_out_hour,_=self.attn(queries,keys_hour,cum_subs_mask_hour,num_neg)
         # self_attn_out_hour, _ = self.multihead_attn_hour(attn_out_hour, attn_out_hour, attn_out_hour)
             #hsh
-        # keys_hsh=cum_subs_avg_hsh
-        # attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg)
+        keys_hsh=cum_subs_avg_hsh
+        attn_out_hsh,_=self.attn(queries,keys_hsh,cum_subs_mask_hsh,num_neg)
         # self_attn_out_geo, _ = self.multihead_attn_geo(attn_out_hsh, attn_out_hsh, attn_out_hsh)
         # pref_out = (self_attn_out_day, self_attn_out_hour, self_attn_out_geo, queries)
 
-        pref_out = (attn_out_day, attn_out_hour, queries)
+        pref_out = (attn_out_day, attn_out_hour, attn_out_hsh, queries)
         return pref_out, shuffled_indices

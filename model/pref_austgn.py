@@ -55,7 +55,7 @@ class Pref_Austgn(nn.Module):
         '''
         austgn_inputs, pref_inputs, y_inputs, neg_inputs = inputs
         pref_out, shuffled_indices = self.preference_model(pref_inputs, y_inputs, neg_inputs, num_neg)
-        seq_out = self.sequential_model(austgn_inputs)
+        seq_out,b_seq_loss = self.sequential_model(austgn_inputs)
         
         pref_day, pref_hour, queries = pref_out # (batch_size, neg_num+1, embs),queries:(bs,neg_num,embs)
         seq_poi, seq_cat = seq_out # (batch_size, embs)
@@ -73,5 +73,5 @@ class Pref_Austgn(nn.Module):
         
         model_out = self.out_mlp(inner_attn_out)
         
-        return model_out, torch.stack(shuffled_indices) #返回indice张量
+        return model_out, torch.stack(shuffled_indices), b_seq_loss #返回indice张量
         

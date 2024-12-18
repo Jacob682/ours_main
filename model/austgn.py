@@ -62,10 +62,10 @@ class AUSTGN(nn.Module):
         for weight in self.parameters():
             weight.data.uniform_(-stdv,stdv)
         
-    def forward(self, input, x_q, keys_length, init_state=None):
+    def forward(self, input, x_q, austgn_y, keys_length, init_state=None):
         '''
         input : (bs, 统一sq, embs)，最后一维第一位是delta_t,第二位是delta_d
-        x_q: (bs, 统一sq，embs)
+        x_q: (bs, 统一sq，num_neg_q, embs)
         keys_lengths: (bs, 1)做packed用
         init_state = (h_t, c_t) 不需要有at，因为at可以用0初始化的ht，ct生成
 
@@ -84,16 +84,19 @@ class AUSTGN(nn.Module):
         # q_unpacked, _ = pad_packed_sequence(q_packed, batch_first=True) 
         batch_size, seq_len = input.size(0), input.size(1)
         # hidden_seq = [] # 所有隐藏状态
-        hidden_seq_attn = torch.zeros(batch_size, seq_len, self.hidden_sz, device=input.device) # 用于最后输出
-        past_h = torch.zeros(batch_size, self.hidden_sz, self.hidden_sz, device=input.device) # 用于计算attn的h_t
+        hidden_seq_attn = torch.zeros(batch_size, seq_len, 10, self.hidden_sz, device=input.device) # 用于最后输出
+        past_h = torch.zeros(batch_size, self.hidden_sz, 10, self.hidden_sz, device=input.device) # 用于计算attn的h_t
          
         if init_state is None: # 初始化最初状态
             h_t, c_t= (
-                torch.zeros(batch_size, self.hidden_sz, device=input.device), # h_t只包含当前时间步的
-                torch.zeros(batch_size, self.hidden_sz, device=input.device)
+                torch.zeros(batch_size, 10, self.hidden_sz, device=input.device), # h_t只包含当前时间步的
+                torch.zeros(batch_size, 10, self.hidden_sz,  device=input.device)
             )
         else:
             h_t, c_t = init_state
+
+        b_austgn_loss = 0
+        austgn_loss_function = nn.BCELoss(reduce = 'mean')
 
         for t in range(seq_len): # 迭代每个时间步
             
@@ -105,15 +108,16 @@ class AUSTGN(nn.Module):
             Tt=input[valid_indices,t,0].unsqueeze(1) # 取有效样本更新
             Dt=input[valid_indices,t,1].unsqueeze(1)
             xt=input[valid_indices,t,2:]
-            qt=x_q[valid_indices,t,:]
+            qt=x_q[valid_indices,t,:,:] #(bs, 1, num_neg_q, embs)
+            yt=austgn_y[valid_indices,t].unsqueeze(1) #(bs)
 
             if t == 0:
                 at = 1
             else:
-                past_h_valid = past_h[valid_indices, :t, :] #(batch_size, seq_len,embs)
+                past_h_valid = past_h[valid_indices, :t, :] #(batch_size, seq', embs)
                 qt = self.linear_a(qt.unsqueeze(1)) # (batch_size, q_num, hidden)
                 at, _ = self.attn(qt, past_h_valid, past_h_valid) # 输出(attn_score, attn_weight) | (batch_size, targe_num, embs), 此时的target只有一个
-                at = at.squeeze(1) # (batch_size, embs)
+                # at = at.squeeze(1) # (batch_size, q_num, embs)
 
             #更新门组件及内部候选状态
             it = torch.sigmoid(xt @ self.Wxi + h_t[valid_indices] @ self.Whi + self.bi) # (batch_size, embs)
@@ -121,8 +125,8 @@ class AUSTGN(nn.Module):
             c_tilde = torch.tanh(xt @ self.Wxc + h_t[valid_indices] @ self.Whc + self.bc) #(batch_size, embs)
             ot = torch.sigmoid(xt @ self.Wxo + h_t[valid_indices] @ self.Who + Tt @ self.Wto + Dt @ self.Wdo + self.bo)
 
-            it_prime = it * at
-            ft_prime = ft * at
+            it_prime = it.unsqueeze(1) * at # (batch_size, targe_num, embs)
+            ft_prime = ft.unsqueeze(1) * at
 
             
             T1t = torch.sigmoid(xt @ self.Wxt1 + torch.sigmoid(Tt @ self.Wt1) + self.bt1) # (batch_size, embs)
@@ -130,16 +134,19 @@ class AUSTGN(nn.Module):
             D1t = torch.sigmoid(xt @ self.Wxd1 + torch.sigmoid(Dt @ self.Wd1) + self.bd1)
             D2t = torch.sigmoid(xt @ self.Wxd2 + torch.sigmoid(Dt @ self.Wd2) + self.bd2)
             
-            c_hat = ft_prime * c_t[valid_indices] + it_prime * T1t * D1t * c_tilde # (batch_size, embs)
-            c_t[valid_indices] = ft_prime * c_t[valid_indices] + it_prime * T2t * D2t * c_tilde # (batch_size, embs)
+            c_hat = ft_prime * c_t[valid_indices].unsqueeze(1) + it_prime * (T1t * D1t * c_tilde).unsqueeze(1) # (batch_size, q_num, embs)
+            c_t[valid_indices] = ft_prime * c_t[valid_indices].unsqueeze(1) + it_prime * (T2t * D2t * c_tilde).unsqueeze(1) # (batch_size, q_num, embs)
 
-            h_new = ot * torch.tanh(c_hat)
+            h_new = ot.unsqueeze(1) * torch.tanh(c_hat) #(batch_size, targe_num, embs)
 
-            h_t[valid_indices] = h_new # 当前有效时间步的h_t
+            h_t[valid_indices] = h_new # 当前有效时间步的h_t (batch_size, sl, targe_num, embs)
 
-            hidden_seq_attn[valid_indices, t, :] = h_new # 用于输出的隐藏状态 (batch_size, seq_len, embs)
-            past_h[valid_indices, t, :] = h_new # 所有时间步，用于计算attn的隐藏状态
-        return hidden_seq_attn, (h_t, c_t)#hidden_seq是所有时间步的隐藏向量，h_t是最后一个隐藏向量，c_t是当前时间步的状态
+            b_austgn_loss = b_austgn_loss + austgn_loss_function(h_new, yt) # (batch_size, q_num, embs)
+
+            hidden_seq_attn[valid_indices, t, :, :] = h_new # 用于输出的隐藏状态 (batch_size, seq_len,q_num, embs)
+            past_h[valid_indices, t, :] = h_new # 所有时间步，用于计算attn的隐藏状态(bs,sq, q_n, embs)
+        
+        return hidden_seq_attn, (h_t, c_t), b_austgn_loss#hidden_seq是所有时间步的隐藏向量，h_t是最后一个隐藏向量，c_t是当前时间步的状态
 
             
 
@@ -190,6 +197,8 @@ class Sequential_Model(nn.Module):
         hour_q = self.embed_hour(input[11])
         geo_q = self.embed_geo(input[12])
 
+        austgn_y = input[9][0] # 具体poi值 (bs, rec_num)
+
         t = torch.unsqueeze(input[6], dim = -1)
         d = torch.unsqueeze(input[7], dim = -1)
         
@@ -203,11 +212,11 @@ class Sequential_Model(nn.Module):
         
         
 
-        _, (h_poi_t, _) = self.austgn_poi(austgn_loc_input, austgn_loc_q, keys_length)
-        _, (h_cat_t, _) = self.austgn_cat(austgn_cat_input, austgn_cat_q, keys_length)
+        _, (h_poi_t, _), b_poi_loss = self.austgn_poi(austgn_loc_input, austgn_loc_q, austgn_y, keys_length)
+        _, (h_cat_t, _), b_cat_loss = self.austgn_cat(austgn_cat_input, austgn_cat_q, austgn_y, keys_length)
 
 
         h_poi_out = self.seq_linear_poi(h_poi_t) #(batch_size, embs)
         h_cat_out = self.seq_linear_cat(h_cat_t)
 
-        return (h_poi_out, h_cat_out)
+        return (h_poi_out, h_cat_out),(b_poi_loss, b_cat_loss)

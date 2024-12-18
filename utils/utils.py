@@ -338,3 +338,7 @@ def get_current_branch(repo_path='/home/liuqiuyu/POI_OURS'):
     except Exception as e:
         print('Error while getting branch:', e)
         return None
+
+def uncertain_weight(loss):
+    weight = nn.Parameter(torch.Tensor(1.0))
+    return 0.5 * nn.exp(-weight) * loss + 0.5 * weight

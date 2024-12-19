@@ -112,8 +112,9 @@ class AUSTGN(nn.Module):
             else:
                 past_h_valid = past_h[valid_indices, :t, :] #(batch_size, seq_len,embs)
                 qt = self.linear_a(qt.unsqueeze(1)) # (batch_size, q_num, hidden)
-                at, _ = self.attn(qt, past_h_valid, past_h_valid) # 输出(attn_score, attn_weight) | (batch_size, targe_num, embs), 此时的target只有一个
-                at = at.squeeze(1) # (batch_size, embs)
+                # at, _ = self.attn(qt, past_h_valid, past_h_valid) # 输出(attn_score, attn_weight) | (batch_size, targe_num, embs), 此时的target只有一个
+                # at = at.squeeze(1) # (batch_size, embs)
+                at = 1
 
             #更新门组件及内部候选状态
             it = torch.sigmoid(xt @ self.Wxi + h_t[valid_indices] @ self.Whi + self.bi) # (batch_size, embs)
